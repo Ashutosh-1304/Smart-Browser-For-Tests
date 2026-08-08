@@ -8,8 +8,8 @@ import { useWindowEvents } from './hooks/useWindowEvents.js';
 let violationId = 0;
 
 export default function App() {
-  const [urlInput, setUrlInput] = useState('https://docs.google.com/forms');
-  const [activeUrl, setActiveUrl] = useState('https://docs.google.com/forms');
+  const [urlInput, setUrlInput] = useState('https://google.com');
+  const [activeUrl, setActiveUrl] = useState('https://google.com');
 
   const [cameraStatus, setCameraStatus] = useState('idle'); // idle | running | error
   const [cameraError, setCameraError] = useState('');
