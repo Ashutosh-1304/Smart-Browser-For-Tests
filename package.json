@@ -1,0 +1,27 @@
+{
+  "name": "secure-assessment-poc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Secure Assessment Application - PoC (Electron + React + MediaPipe Face Detection)",
+  "main": "electron/main.cjs",
+  "type": "module",
+  "scripts": {
+    "dev:vite": "vite",
+    "dev:electron": "wait-on tcp:127.0.0.1:5173 && electron .",
+    "dev": "concurrently -k -n VITE,ELECTRON -c cyan,green \"npm:dev:vite\" \"npm:dev:electron\"",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "0.10.20",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^33.2.1",
+    "vite": "^6.0.7",
+    "wait-on": "^8.0.1"
+  }
+}
