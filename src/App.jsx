@@ -4,12 +4,21 @@ import FaceMonitor from './components/FaceMonitor.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import { useWindowEvents } from './hooks/useWindowEvents.js';
 
-// Simple incrementing id for violation rows.
+// Default assessment URL loaded on startup.
+const DEFAULT_URL = 'https://google.com';
+
+// Simple incrementing ids for log rows.
 let violationId = 0;
+let urlLogId = 0;
 
 export default function App() {
-  const [urlInput, setUrlInput] = useState('https://google.com');
-  const [activeUrl, setActiveUrl] = useState('https://google.com');
+  const [urlInput, setUrlInput] = useState(DEFAULT_URL);
+  const [activeUrl, setActiveUrl] = useState(DEFAULT_URL);
+
+  // Every URL loaded into the assessment frame, newest first.
+  const [urlLogs, setUrlLogs] = useState(() => [
+    { id: ++urlLogId, time: new Date().toLocaleTimeString(), url: DEFAULT_URL },
+  ]);
 
   const [cameraStatus, setCameraStatus] = useState('idle'); // idle | running | error
   const [cameraError, setCameraError] = useState('');
@@ -93,11 +102,26 @@ export default function App() {
     if (errMsg) setCameraError(errMsg);
   }, []);
 
+  const lastLoggedUrl = useRef('');
+
+  const logUrl = useCallback((url) => {
+    // Skip consecutive duplicate URLs (redirects, re-fires)
+    if (url === lastLoggedUrl.current) return;
+    lastLoggedUrl.current = url;
+    setUrlLogs((prev) =>
+      [
+        { id: ++urlLogId, time: new Date().toLocaleTimeString(), url },
+        ...prev,
+      ].slice(0, 200)
+    );
+  }, []);
+
   const loadUrl = () => {
     let next = urlInput.trim();
     if (!next) return;
     if (!/^https?:\/\//i.test(next)) next = 'https://' + next;
     setActiveUrl(next);
+    // Don't logUrl here — the webview's did-navigate event will log it
   };
 
   return (
@@ -126,7 +150,13 @@ export default function App() {
       </header>
 
       <div className="body">
-        <SiteFrame url={activeUrl} />
+        <SiteFrame
+          url={activeUrl}
+          onNavigate={(navUrl) => {
+            setUrlInput(navUrl);   // update the URL bar to reflect the current page
+            logUrl(navUrl);        // log every in-webview navigation
+          }}
+        />
         <aside className="sidebar">
           <FaceMonitor
             onCameraStatus={handleCameraStatus}
@@ -139,6 +169,7 @@ export default function App() {
             focused={focused}
             fullscreen={fullscreen}
             violations={violations}
+            urlLogs={urlLogs}
           />
         </aside>
       </div>

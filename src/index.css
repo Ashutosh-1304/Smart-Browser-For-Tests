@@ -297,3 +297,51 @@ button:hover {
 .v-msg {
   color: var(--text);
 }
+
+/* ---------- URL logs ---------- */
+.url-logs {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  max-height: 200px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.url-logs-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+.url-logs-head .count {
+  background: var(--accent);
+  color: #06283d;
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 12px;
+}
+.url-logs-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 6px;
+}
+.url-log {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: baseline;
+  padding: 7px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+.url-log:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.03);
+}
+.u-url {
+  color: var(--accent);
+  word-break: break-all;
+}

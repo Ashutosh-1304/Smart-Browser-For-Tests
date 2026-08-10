@@ -23,6 +23,7 @@ export default function Dashboard({
   focused,
   fullscreen,
   violations,
+  urlLogs = [],
 }) {
   const cam =
     cameraStatus === 'running'
@@ -75,6 +76,25 @@ export default function Dashboard({
                 <span className="v-time">{v.time}</span>
                 <span className="v-type">{TYPE_LABEL[v.type] || v.type}</span>
                 <span className="v-msg">{v.message}</span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="url-logs">
+        <div className="url-logs-head">
+          <span>URL Logs</span>
+          <span className="count">{urlLogs.length}</span>
+        </div>
+        <div className="url-logs-list">
+          {urlLogs.length === 0 ? (
+            <div className="empty">No URLs loaded yet</div>
+          ) : (
+            urlLogs.map((u) => (
+              <div key={u.id} className="url-log">
+                <span className="v-time">{u.time}</span>
+                <span className="u-url">{u.url}</span>
               </div>
             ))
           )}
