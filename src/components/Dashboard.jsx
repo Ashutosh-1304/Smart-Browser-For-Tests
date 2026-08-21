@@ -15,7 +15,9 @@ const TYPE_LABEL = {
   fullscreen: 'FULLSCREEN',
   face: 'NO FACE',
   'multiple-faces': 'MULTIPLE PEOPLE',
-  'suspicious-object': 'SUSPICIOUS OBJECT',
+  'suspicious-object': 'OBSTACLE DETECTED',
+  gaze: 'GAZE AWAY',
+  obstacle: 'OBSTACLE DETECTED',
 };
 
 export default function Dashboard({
