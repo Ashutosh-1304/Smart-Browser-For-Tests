@@ -300,6 +300,12 @@ button:hover {
 .type-suspicious-object .v-type {
   background: #ea580c;
 }
+.type-gaze .v-type {
+  background: #e11d48;
+}
+.type-obstacle .v-type {
+  background: #b91c1c;
+}
 .v-msg {
   color: var(--text);
 }
