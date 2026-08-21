@@ -33,14 +33,14 @@ async function createObjectDetector(vision) {
     return await ObjectDetector.createFromOptions(vision, {
       baseOptions: { modelAssetPath: OBJ_MODEL_URL, delegate: 'GPU' },
       runningMode: 'VIDEO',
-      scoreThreshold: 0.30,
+      scoreThreshold: 0.18,
     });
   } catch (err) {
     console.warn('GPU delegate for ObjectDetector failed, falling back to CPU:', err);
     return await ObjectDetector.createFromOptions(vision, {
       baseOptions: { modelAssetPath: OBJ_MODEL_URL, delegate: 'CPU' },
       runningMode: 'VIDEO',
-      scoreThreshold: 0.30,
+      scoreThreshold: 0.18,
     });
   }
 }
@@ -207,7 +207,7 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
 
       // 3) Draw Obstacle Detections
       (obstacleDetections || []).forEach((d) => {
-        const categoryRaw = d.categories?.[0]?.categoryName;
+        const categoryRaw = d.categories?.[0]?.categoryName || d.categories?.[0]?.displayName;
         if (!categoryRaw) return;
         
         const category = categoryRaw.toLowerCase().trim();
@@ -267,13 +267,14 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
 
           if (v && detector && v.readyState >= 2) {
             try {
-              const timestamp = performance.now();
+              let timestamp = performance.now();
               const faceResult = detector.detectForVideo(v, timestamp);
               const faceDetections = faceResult.detections || [];
               const faceCount = faceDetections.length;
 
               let objectDetections = [];
               if (objDetector) {
+                timestamp += 0.01;
                 const objResult = objDetector.detectForVideo(v, timestamp);
                 objectDetections = objResult.detections || [];
               }
@@ -281,6 +282,7 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
               let landmarksList = [];
               let gazeInfo = { isLookingAway: false, direction: 'Center' };
               if (landmarker && faceCount > 0) {
+                timestamp += 0.01;
                 const landmarkerResult = landmarker.detectForVideo(v, timestamp);
                 landmarksList = landmarkerResult.faceLandmarks || [];
                 if (landmarksList.length > 0) {
@@ -290,17 +292,20 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
 
               // Obstacles = any detected object except candidate/person
               const obstacleDetections = objectDetections.filter(d => {
-                const catName = d.categories?.[0]?.categoryName;
+                const catName = d.categories?.[0]?.categoryName || d.categories?.[0]?.displayName;
                 return catName && catName.toLowerCase().trim() !== 'person';
               });
 
               drawBoxes(faceDetections, obstacleDetections, gazeInfo, landmarksList);
 
-              const detectedObstacles = obstacleDetections.map(d => ({
-                category: d.categories[0].categoryName.toLowerCase().trim(),
-                rawName: d.categories[0].categoryName,
-                score: d.categories[0].score,
-              }));
+              const detectedObstacles = obstacleDetections.map(d => {
+                const catName = d.categories[0].categoryName || d.categories[0].displayName || 'object';
+                return {
+                  category: catName.toLowerCase().trim(),
+                  rawName: catName,
+                  score: d.categories[0].score,
+                };
+              });
 
               onFaceStatus?.(faceCount > 0);
               onDetectionUpdate?.({
