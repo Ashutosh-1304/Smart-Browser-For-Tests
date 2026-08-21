@@ -26,7 +26,7 @@ export default function App() {
   const [faceDetected, setFaceDetected] = useState(null);   // null=unknown, true, false
 
   const [focused, setFocused] = useState(true);
-  const [fullscreen, setFullscreen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(true);
   const [violations, setViolations] = useState([]);
 
   // ─── Fairness Score Engine ───
@@ -50,9 +50,11 @@ export default function App() {
         switch (data.type) {
           case 'focus':
             setFocused(true);
+            unfocusedSince.current = null;
             break;
           case 'blur':
             setFocused(false);
+            unfocusedSince.current = Date.now();
             addViolation('focus', 'Window lost focus (possible app/tab switch)');
             break;
           case 'minimize':
@@ -95,7 +97,10 @@ export default function App() {
   const lastObstacleViolation = useRef({});   // category -> timestamp
   const [obstaclesCount, setObstaclesCount] = useState(0);
 
-  const notFullscreenSince = useRef(Date.now()); // starts not-fullscreen
+  const unfocusedSince = useRef(null);
+  const lastFocusViolation = useRef(0);
+
+  const notFullscreenSince = useRef(null); // starts in fullscreen
   const lastNotFullscreenViolation = useRef(0);
 
   const handleFaceStatus = useCallback((isFace) => {
@@ -228,7 +233,18 @@ export default function App() {
         }
       });
 
-      // 5) Not in fullscreen (1+ second, cooldown 5 seconds)
+      // 5) Tab still switched (every 2 seconds while unfocused)
+      if (
+        unfocusedSince.current &&
+        now - unfocusedSince.current > 2000 &&
+        now - lastFocusViolation.current > 2000
+      ) {
+        lastFocusViolation.current = now;
+        const secs = Math.round((now - unfocusedSince.current) / 1000);
+        addViolation('focus', `Window still unfocused (${secs}s)`);
+      }
+
+      // 6) Not in fullscreen (1+ second, cooldown 5 seconds)
       if (
         notFullscreenSince.current &&
         now - notFullscreenSince.current > 1000 &&

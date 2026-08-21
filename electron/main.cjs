@@ -45,7 +45,7 @@ function createWindow() {
   }
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow.maximize();
+    mainWindow.setFullScreen(true);
     mainWindow.show();
   });
 
