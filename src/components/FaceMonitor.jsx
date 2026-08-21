@@ -8,19 +8,18 @@ const WASM_PATH =
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
 const OBJ_MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/1/efficientdet_lite0.tflite';
+  'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite';
 const LANDMARK_MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 
 async function createDetector(vision) {
-  // Try GPU first; some Electron/GPU combos fail, so fall back to CPU.
   try {
     return await FaceDetector.createFromOptions(vision, {
       baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
       runningMode: 'VIDEO',
     });
   } catch (err) {
-    console.warn('GPU delegate failed, falling back to CPU:', err);
+    console.warn('GPU delegate failed for FaceDetector, falling back to CPU:', err);
     return await FaceDetector.createFromOptions(vision, {
       baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
       runningMode: 'VIDEO',
@@ -29,18 +28,20 @@ async function createDetector(vision) {
 }
 
 async function createObjectDetector(vision) {
+  // Use CPU delegate for ObjectDetector as WebGL GPU delegate on Chrome/Electron
+  // often returns empty object detection arrays silently.
   try {
-    return await ObjectDetector.createFromOptions(vision, {
-      baseOptions: { modelAssetPath: OBJ_MODEL_URL, delegate: 'GPU' },
-      runningMode: 'VIDEO',
-      scoreThreshold: 0.18,
-    });
-  } catch (err) {
-    console.warn('GPU delegate for ObjectDetector failed, falling back to CPU:', err);
     return await ObjectDetector.createFromOptions(vision, {
       baseOptions: { modelAssetPath: OBJ_MODEL_URL, delegate: 'CPU' },
       runningMode: 'VIDEO',
-      scoreThreshold: 0.18,
+      scoreThreshold: 0.15,
+    });
+  } catch (err) {
+    console.warn('CPU delegate failed for ObjectDetector:', err);
+    return await ObjectDetector.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: OBJ_MODEL_URL },
+      runningMode: 'VIDEO',
+      scoreThreshold: 0.15,
     });
   }
 }
@@ -232,15 +233,20 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
       try {
         onCameraStatus?.('idle');
 
-        // 1) Load MediaPipe vision fileset + face detector + object detector + landmarker.
+        // 1) Load MediaPipe vision fileset + detectors in parallel.
         const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
         if (cancelled) return;
-        detectorRef.current = await createDetector(vision);
+
+        const [detector, objDetector, landmarker] = await Promise.all([
+          createDetector(vision),
+          createObjectDetector(vision),
+          createLandmarker(vision),
+        ]);
         if (cancelled) return;
-        objDetectorRef.current = await createObjectDetector(vision);
-        if (cancelled) return;
-        landmarkerRef.current = await createLandmarker(vision);
-        if (cancelled) return;
+
+        detectorRef.current = detector;
+        objDetectorRef.current = objDetector;
+        landmarkerRef.current = landmarker;
 
         // 2) Start the webcam.
         const stream = await navigator.mediaDevices.getUserMedia({
