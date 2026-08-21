@@ -189,12 +189,11 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
         ctx.fillText(label, b.originX, b.originY - 6);
       });
 
-      // 2) Draw Eye Landmarks & Gaze Indicator
+      // 2) Draw Iris Points
       if (landmarksList && landmarksList.length > 0) {
         const primaryLandmarks = landmarksList[0];
         const gazeColor = gazeInfo.isLookingAway ? '#ef4444' : '#22c55e';
 
-        // Draw Iris points
         [468, 473].forEach((idx) => {
           const pt = primaryLandmarks[idx];
           if (pt) {
@@ -204,14 +203,6 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
             ctx.fill();
           }
         });
-
-        // Top Banner for Gaze Status
-        ctx.fillStyle = gazeInfo.isLookingAway ? 'rgba(239, 68, 68, 0.85)' : 'rgba(34, 197, 94, 0.85)';
-        ctx.fillRect(8, 8, 180, 26);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 12px sans-serif';
-        const gazeText = gazeInfo.isLookingAway ? `⚠️ ${gazeInfo.direction}` : '👁️ Gaze: Center';
-        ctx.fillText(gazeText, 16, 25);
       }
 
       // 3) Draw Obstacle Detections

@@ -24,8 +24,6 @@ export default function Dashboard({
   cameraStatus,
   cameraError,
   faceDetected,
-  gazeState,
-  obstaclesCount = 0,
   focused,
   fullscreen,
   violations,
@@ -47,14 +45,6 @@ export default function Dashboard({
       ? { value: 'Face Detected', tone: 'good' }
       : { value: `Multiple (${faceDetected})`, tone: 'bad' };
 
-  const gaze = gazeState?.isLookingAway
-    ? { value: gazeState.direction || 'Looking Away', tone: 'bad' }
-    : { value: 'Centered', tone: 'good' };
-
-  const obstacleCard = obstaclesCount > 0
-    ? { value: `${obstaclesCount} Detected`, tone: 'bad' }
-    : { value: 'Clear', tone: 'good' };
-
   return (
     <div className="dashboard">
       <h3 className="dash-title">Monitoring Dashboard</h3>
@@ -62,8 +52,6 @@ export default function Dashboard({
       <div className="status-grid">
         <StatusCard label="Camera" value={cam.value} tone={cam.tone} />
         <StatusCard label="Face" value={face.value} tone={face.tone} />
-        <StatusCard label="Eye Gaze" value={gaze.value} tone={gaze.tone} />
-        <StatusCard label="Obstacles" value={obstacleCard.value} tone={obstacleCard.tone} />
         <StatusCard
           label="Window Focus"
           value={focused ? 'Focused' : 'Not Focused'}
