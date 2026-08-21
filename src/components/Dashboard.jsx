@@ -13,7 +13,9 @@ const TYPE_LABEL = {
   focus: 'FOCUS',
   minimize: 'MINIMIZE',
   fullscreen: 'FULLSCREEN',
-  face: 'FACE',
+  face: 'NO FACE',
+  'multiple-faces': 'MULTIPLE PEOPLE',
+  'suspicious-object': 'SUSPICIOUS OBJECT',
 };
 
 export default function Dashboard({
@@ -35,9 +37,11 @@ export default function Dashboard({
   const face =
     faceDetected == null
       ? { value: 'Detecting…', tone: 'warn' }
-      : faceDetected
+      : faceDetected === 0 || faceDetected === false
+      ? { value: 'No Face', tone: 'bad' }
+      : faceDetected === 1 || faceDetected === true
       ? { value: 'Face Detected', tone: 'good' }
-      : { value: 'No Face', tone: 'bad' };
+      : { value: `Multiple (${faceDetected})`, tone: 'bad' };
 
   return (
     <div className="dashboard">

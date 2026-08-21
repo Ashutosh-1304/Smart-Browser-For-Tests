@@ -69,22 +69,70 @@ export default function App() {
     )
   );
 
-  // ----- Phase 2: face status + "no face" violation (debounced) -----
+  // ----- Phase 2: detection status & violation debouncing -----
   const noFaceSince = useRef(null);
   const lastNoFaceViolation = useRef(0);
+  const multipleFacesSince = useRef(null);
+  const lastMultipleFacesViolation = useRef(0);
+  const currentFaceCount = useRef(0);
+
+  const suspiciousObjectSince = useRef({}); // category -> timestamp
+  const lastObjectViolation = useRef({});   // category -> timestamp
 
   const handleFaceStatus = useCallback((isFace) => {
-    setFaceDetected(isFace);
-    if (isFace) {
+    // Keep for backward compatibility or direct calls
+    setFaceDetected(isFace ? 1 : 0);
+  }, []);
+
+  const handleDetectionUpdate = useCallback((faceCount, forbiddenObjects) => {
+    setFaceDetected(faceCount);
+    currentFaceCount.current = faceCount;
+
+    const now = Date.now();
+
+    // -- No face --
+    if (faceCount > 0) {
       noFaceSince.current = null;
     } else if (noFaceSince.current == null) {
-      noFaceSince.current = Date.now();
+      noFaceSince.current = now;
     }
+
+    // -- Multiple faces --
+    if (faceCount <= 1) {
+      multipleFacesSince.current = null;
+    } else if (multipleFacesSince.current == null) {
+      multipleFacesSince.current = now;
+    }
+
+    // -- Suspicious objects --
+    const activeCategories = forbiddenObjects.map(obj => obj.category);
+    
+    // Clean up objects that are no longer present
+    Object.keys(suspiciousObjectSince.current).forEach(cat => {
+      if (!activeCategories.includes(cat)) {
+        delete suspiciousObjectSince.current[cat];
+      }
+    });
+
+    // Mark start time for newly detected objects
+    activeCategories.forEach(cat => {
+      if (suspiciousObjectSince.current[cat] == null) {
+        suspiciousObjectSince.current[cat] = now;
+      }
+    });
   }, []);
+
+  const FRIENDLY_NAMES = {
+    'cell phone': 'Mobile Phone',
+    'laptop': 'Laptop',
+    'book': 'Book',
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
+
+      // 1) No Face (3+ seconds, cooldown 5 seconds)
       if (
         noFaceSince.current &&
         now - noFaceSince.current > 3000 &&
@@ -93,6 +141,34 @@ export default function App() {
         lastNoFaceViolation.current = now;
         addViolation('face', 'No face detected for 3+ seconds');
       }
+
+      // 2) Multiple People (3+ seconds, cooldown 5 seconds)
+      if (
+        multipleFacesSince.current &&
+        now - multipleFacesSince.current > 3000 &&
+        now - lastMultipleFacesViolation.current > 5000
+      ) {
+        lastMultipleFacesViolation.current = now;
+        const count = currentFaceCount.current;
+        addViolation('multiple-faces', `Multiple people detected (${count} faces) for 3+ seconds`);
+      }
+
+      // 3) Suspicious Objects (1+ second, cooldown 5 seconds per category)
+      Object.keys(suspiciousObjectSince.current).forEach((cat) => {
+        const detectedAt = suspiciousObjectSince.current[cat];
+        const lastViolatedAt = lastObjectViolation.current[cat] || 0;
+
+        if (
+          detectedAt &&
+          now - detectedAt > 1000 &&
+          now - lastViolatedAt > 5000
+        ) {
+          lastObjectViolation.current[cat] = now;
+          const friendlyName = FRIENDLY_NAMES[cat] || cat;
+          addViolation('suspicious-object', `Suspicious object detected (${friendlyName}) for 1+ second`);
+        }
+      });
+
     }, 1000);
     return () => clearInterval(interval);
   }, [addViolation]);
@@ -161,6 +237,7 @@ export default function App() {
           <FaceMonitor
             onCameraStatus={handleCameraStatus}
             onFaceStatus={handleFaceStatus}
+            onDetectionUpdate={handleDetectionUpdate}
           />
           <Dashboard
             cameraStatus={cameraStatus}

@@ -294,6 +294,12 @@ button:hover {
 .type-face .v-type {
   background: #dc2626;
 }
+.type-multiple-faces .v-type {
+  background: #dc2626;
+}
+.type-suspicious-object .v-type {
+  background: #ea580c;
+}
 .v-msg {
   color: var(--text);
 }
