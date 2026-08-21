@@ -56,9 +56,11 @@ export default function App() {
             break;
           case 'enter-full-screen':
             setFullscreen(true);
+            notFullscreenSince.current = null;
             break;
           case 'leave-full-screen':
             setFullscreen(false);
+            notFullscreenSince.current = Date.now();
             addViolation('fullscreen', 'Exited fullscreen mode');
             break;
           default:
@@ -78,6 +80,9 @@ export default function App() {
 
   const suspiciousObjectSince = useRef({}); // category -> timestamp
   const lastObjectViolation = useRef({});   // category -> timestamp
+
+  const notFullscreenSince = useRef(Date.now()); // starts not-fullscreen
+  const lastNotFullscreenViolation = useRef(0);
 
   const handleFaceStatus = useCallback((isFace) => {
     // Keep for backward compatibility or direct calls
@@ -168,6 +173,16 @@ export default function App() {
           addViolation('suspicious-object', `Suspicious object detected (${friendlyName}) for 1+ second`);
         }
       });
+
+      // 4) Not in fullscreen (1+ second, cooldown 5 seconds)
+      if (
+        notFullscreenSince.current &&
+        now - notFullscreenSince.current > 1000 &&
+        now - lastNotFullscreenViolation.current > 5000
+      ) {
+        lastNotFullscreenViolation.current = now;
+        addViolation('fullscreen', 'Fullscreen not enabled for 1+ second');
+      }
 
     }, 1000);
     return () => clearInterval(interval);
