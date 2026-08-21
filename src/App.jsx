@@ -289,23 +289,48 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="dot" /> Secure Assessment <small>PoC</small>
+          <svg className="shield-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span className="brand-text">SECURE BROWSER</span>
+          <span className="poc-badge">PROCTOR ACTIVE</span>
         </div>
-        <div className="url-bar">
-          <input
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && loadUrl()}
-            placeholder="Enter assessment URL (Google Form, website...)"
-          />
-          <button onClick={loadUrl}>Load</button>
-        </div>
-        <div className="fs-controls">
-          <button onClick={() => window.electronAPI?.toggleFullscreen(true)}>
-            Enter Fullscreen
+        
+        <div className="url-bar-container">
+          <div className="url-input-wrapper">
+            <svg className="lock-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <input
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && loadUrl()}
+              placeholder="Enter assessment URL (e.g. docs.google.com/forms...)"
+              className="secure-url-input"
+            />
+          </div>
+          <button onClick={loadUrl} className="btn-load">
+            <span>Load</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
           </button>
-          <button onClick={() => window.electronAPI?.toggleFullscreen(false)}>
-            Exit
+        </div>
+        
+        <div className="fs-controls">
+          <button onClick={() => window.electronAPI?.toggleFullscreen(true)} className="btn-fs btn-enter-fs" title="Enter Fullscreen">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3m13-3v3a2 2 0 0 0-2 2h-3"/>
+            </svg>
+            <span>Maximize</span>
+          </button>
+          <button onClick={() => window.electronAPI?.toggleFullscreen(false)} className="btn-fs btn-exit-fs" title="Exit Fullscreen">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 14h6v6m10-6h-6v6M4 10h6V4m10 6h-6V4"/>
+            </svg>
+            <span>Exit FS</span>
           </button>
         </div>
       </header>
