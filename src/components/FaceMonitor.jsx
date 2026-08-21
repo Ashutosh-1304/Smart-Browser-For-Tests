@@ -8,19 +8,18 @@ const WASM_PATH =
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
 const OBJ_MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/1/efficientdet_lite0.tflite';
+  'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite';
 const LANDMARK_MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 
 async function createDetector(vision) {
-  // Try GPU first; some Electron/GPU combos fail, so fall back to CPU.
   try {
     return await FaceDetector.createFromOptions(vision, {
       baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
       runningMode: 'VIDEO',
     });
   } catch (err) {
-    console.warn('GPU delegate failed, falling back to CPU:', err);
+    console.warn('GPU delegate failed for FaceDetector, falling back to CPU:', err);
     return await FaceDetector.createFromOptions(vision, {
       baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
       runningMode: 'VIDEO',
@@ -29,18 +28,20 @@ async function createDetector(vision) {
 }
 
 async function createObjectDetector(vision) {
+  // Use CPU delegate for ObjectDetector as WebGL GPU delegate on Chrome/Electron
+  // often returns empty object detection arrays silently.
   try {
-    return await ObjectDetector.createFromOptions(vision, {
-      baseOptions: { modelAssetPath: OBJ_MODEL_URL, delegate: 'GPU' },
-      runningMode: 'VIDEO',
-      scoreThreshold: 0.30,
-    });
-  } catch (err) {
-    console.warn('GPU delegate for ObjectDetector failed, falling back to CPU:', err);
     return await ObjectDetector.createFromOptions(vision, {
       baseOptions: { modelAssetPath: OBJ_MODEL_URL, delegate: 'CPU' },
       runningMode: 'VIDEO',
-      scoreThreshold: 0.30,
+      scoreThreshold: 0.15,
+    });
+  } catch (err) {
+    console.warn('CPU delegate failed for ObjectDetector:', err);
+    return await ObjectDetector.createFromOptions(vision, {
+      baseOptions: { modelAssetPath: OBJ_MODEL_URL },
+      runningMode: 'VIDEO',
+      scoreThreshold: 0.15,
     });
   }
 }
@@ -207,7 +208,7 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
 
       // 3) Draw Obstacle Detections
       (obstacleDetections || []).forEach((d) => {
-        const categoryRaw = d.categories?.[0]?.categoryName;
+        const categoryRaw = d.categories?.[0]?.categoryName || d.categories?.[0]?.displayName;
         if (!categoryRaw) return;
         
         const category = categoryRaw.toLowerCase().trim();
@@ -232,15 +233,20 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
       try {
         onCameraStatus?.('idle');
 
-        // 1) Load MediaPipe vision fileset + face detector + object detector + landmarker.
+        // 1) Load MediaPipe vision fileset + detectors in parallel.
         const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
         if (cancelled) return;
-        detectorRef.current = await createDetector(vision);
+
+        const [detector, objDetector, landmarker] = await Promise.all([
+          createDetector(vision),
+          createObjectDetector(vision),
+          createLandmarker(vision),
+        ]);
         if (cancelled) return;
-        objDetectorRef.current = await createObjectDetector(vision);
-        if (cancelled) return;
-        landmarkerRef.current = await createLandmarker(vision);
-        if (cancelled) return;
+
+        detectorRef.current = detector;
+        objDetectorRef.current = objDetector;
+        landmarkerRef.current = landmarker;
 
         // 2) Start the webcam.
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -267,13 +273,14 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
 
           if (v && detector && v.readyState >= 2) {
             try {
-              const timestamp = performance.now();
+              let timestamp = performance.now();
               const faceResult = detector.detectForVideo(v, timestamp);
               const faceDetections = faceResult.detections || [];
               const faceCount = faceDetections.length;
 
               let objectDetections = [];
               if (objDetector) {
+                timestamp += 0.01;
                 const objResult = objDetector.detectForVideo(v, timestamp);
                 objectDetections = objResult.detections || [];
               }
@@ -281,6 +288,7 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
               let landmarksList = [];
               let gazeInfo = { isLookingAway: false, direction: 'Center' };
               if (landmarker && faceCount > 0) {
+                timestamp += 0.01;
                 const landmarkerResult = landmarker.detectForVideo(v, timestamp);
                 landmarksList = landmarkerResult.faceLandmarks || [];
                 if (landmarksList.length > 0) {
@@ -290,17 +298,20 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
 
               // Obstacles = any detected object except candidate/person
               const obstacleDetections = objectDetections.filter(d => {
-                const catName = d.categories?.[0]?.categoryName;
+                const catName = d.categories?.[0]?.categoryName || d.categories?.[0]?.displayName;
                 return catName && catName.toLowerCase().trim() !== 'person';
               });
 
               drawBoxes(faceDetections, obstacleDetections, gazeInfo, landmarksList);
 
-              const detectedObstacles = obstacleDetections.map(d => ({
-                category: d.categories[0].categoryName.toLowerCase().trim(),
-                rawName: d.categories[0].categoryName,
-                score: d.categories[0].score,
-              }));
+              const detectedObstacles = obstacleDetections.map(d => {
+                const catName = d.categories[0].categoryName || d.categories[0].displayName || 'object';
+                return {
+                  category: catName.toLowerCase().trim(),
+                  rawName: catName,
+                  score: d.categories[0].score,
+                };
+              });
 
               onFaceStatus?.(faceCount > 0);
               onDetectionUpdate?.({
