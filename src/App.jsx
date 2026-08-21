@@ -77,11 +77,13 @@ export default function App() {
   const currentFaceCount = useRef(0);
 
   const gazeAwaySince = useRef(null);
+  const lastSeenGazeAway = useRef(0);
   const lastGazeViolation = useRef(0);
   const currentGazeDirection = useRef('Center');
   const [gazeState, setGazeState] = useState({ isLookingAway: false, direction: 'Center' });
 
   const obstacleSince = useRef({}); // category -> timestamp
+  const lastSeenObstacle = useRef({}); // category -> timestamp
   const lastObstacleViolation = useRef({});   // category -> timestamp
   const [obstaclesCount, setObstaclesCount] = useState(0);
 
@@ -119,26 +121,33 @@ export default function App() {
     }
 
     // -- Eye Gaze / Looking Away --
-    if (!isLookingAway) {
-      gazeAwaySince.current = null;
-    } else if (gazeAwaySince.current == null) {
-      gazeAwaySince.current = now;
+    if (isLookingAway) {
+      lastSeenGazeAway.current = now;
+      if (gazeAwaySince.current == null) {
+        gazeAwaySince.current = now;
+      }
+    } else {
+      if (lastSeenGazeAway.current && now - lastSeenGazeAway.current > 800) {
+        gazeAwaySince.current = null;
+      }
     }
 
     // -- Obstacle Detections --
     const activeCategories = detectedObstacles.map(obj => obj.category);
     
-    // Clean up objects that are no longer present
-    Object.keys(obstacleSince.current).forEach(cat => {
-      if (!activeCategories.includes(cat)) {
-        delete obstacleSince.current[cat];
+    activeCategories.forEach(cat => {
+      lastSeenObstacle.current[cat] = now;
+      if (obstacleSince.current[cat] == null) {
+        obstacleSince.current[cat] = now;
       }
     });
 
-    // Mark start time for newly detected objects
-    activeCategories.forEach(cat => {
-      if (obstacleSince.current[cat] == null) {
-        obstacleSince.current[cat] = now;
+    // Clean up objects that haven't been seen for 800ms
+    Object.keys(obstacleSince.current).forEach(cat => {
+      const lastSeen = lastSeenObstacle.current[cat] || 0;
+      if (now - lastSeen > 800) {
+        delete obstacleSince.current[cat];
+        delete lastSeenObstacle.current[cat];
       }
     });
   }, []);
@@ -181,34 +190,34 @@ export default function App() {
         addViolation('multiple-faces', `Multiple people detected (${count} faces) for 3+ seconds`);
       }
 
-      // 3) Eye Gaze / Looking Away (2+ seconds, cooldown 5 seconds)
+      // 3) Eye Gaze / Looking Away (1.5+ seconds, cooldown 5 seconds)
       if (
         gazeAwaySince.current &&
-        now - gazeAwaySince.current > 2000 &&
+        now - gazeAwaySince.current > 1500 &&
         now - lastGazeViolation.current > 5000
       ) {
         lastGazeViolation.current = now;
         const dir = currentGazeDirection.current || 'Away';
-        addViolation('gaze', `Looking away from screen (${dir}) for 2+ seconds`);
+        addViolation('gaze', `Looking away from screen (${dir})`);
       }
 
-      // 4) Obstacle Detections (1+ second, cooldown 5 seconds per category)
+      // 4) Obstacle Detections (0.8+ seconds, cooldown 5 seconds per category)
       Object.keys(obstacleSince.current).forEach((cat) => {
         const detectedAt = obstacleSince.current[cat];
         const lastViolatedAt = lastObstacleViolation.current[cat] || 0;
 
         if (
           detectedAt &&
-          now - detectedAt > 1000 &&
+          now - detectedAt > 800 &&
           now - lastViolatedAt > 5000
         ) {
           lastObstacleViolation.current[cat] = now;
           const friendlyName = FRIENDLY_NAMES[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
-          addViolation('obstacle', `Obstacle detected in camera view (${friendlyName}) for 1+ second`);
+          addViolation('obstacle', `Obstacle detected in camera view (${friendlyName})`);
         }
       });
 
-    }, 1000);
+    }, 500);
     return () => clearInterval(interval);
   }, [addViolation]);
 
