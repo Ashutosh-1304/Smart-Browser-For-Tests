@@ -5,6 +5,29 @@
 
 ---
 
+## 🚀 Quick Start / Local Setup
+
+Follow these steps to run the application locally on your machine:
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/Ashutosh-1304/Smart-Browser-For-Tests.git
+   cd Smart-Browser-For-Tests
+   ```
+
+2. **Install all dependencies**:
+   ```bash
+   npm install
+   ```
+
+3. **Run the development server**:
+   ```bash
+   npm run dev
+   ```
+   *Note: This command concurrently runs the Vite frontend development server and the Electron wrapper.*
+
+---
+
 ## Project Structure (Current Status)
 
 ```
