@@ -43,6 +43,21 @@ export default function App() {
     recordViolation(type);
   }, [recordViolation]);
 
+  // addWarning: logs to the violations feed but does NOT affect the fairness score.
+  // Used for object-detection events — YOLO detections are logged here so they are
+  // visible in the audit trail, but scoring is intentionally excluded until the
+  // object-detection fairness weights are properly calibrated.
+  const addWarning = useCallback((type, message) => {
+    setViolations((prev) =>
+      [
+        { id: ++violationId, time: new Date().toLocaleTimeString(), type, message },
+        ...prev,
+      ].slice(0, 200)
+    );
+    // ⚠️ Intentionally NOT calling recordViolation — object detection warnings
+    //    are excluded from the fairness score for now.
+  }, []);
+
   // ----- Phase 3: OS window events from the main process -----
   useWindowEvents(
     useCallback(
@@ -217,19 +232,27 @@ export default function App() {
         addViolation('gaze', `Looking away from screen (${dir})`);
       }
 
-      // 4) Obstacle Detections (0.8+ seconds, cooldown 5 seconds per category)
+      // 4) Obstacle / Object Detections
+      //    Dwell threshold : 3 000 ms  — the YOLO model is aggressive so we
+      //    require the object to be present for a full 3 seconds before we log
+      //    anything, reducing false-positive spam.
+      //    Cooldown        : 5 000 ms  — at most one warning every 5 s per category.
+      //    Scoring         : addWarning() is used here (not addViolation) so these
+      //    events appear in the audit log but do NOT deduct from the fairness score.
       Object.keys(obstacleSince.current).forEach((cat) => {
         const detectedAt = obstacleSince.current[cat];
         const lastViolatedAt = lastObstacleViolation.current[cat] || 0;
 
         if (
           detectedAt &&
-          now - detectedAt > 800 &&
+          now - detectedAt > 3000 &&   // ← 3-second dwell before warning
           now - lastViolatedAt > 5000
         ) {
           lastObstacleViolation.current[cat] = now;
           const friendlyName = FRIENDLY_NAMES[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
-          addViolation('obstacle', `Obstacle detected in camera view (${friendlyName})`);
+          // Use addWarning so the log entry is marked [OBJECT DETECTED] but
+          // the fairness score is NOT penalised (intentional — scoring TBD).
+          addWarning('obstacle', `[OBJECT DETECTED] ${friendlyName} present for 3+ seconds`);
         }
       });
 
@@ -256,7 +279,7 @@ export default function App() {
 
     }, 500);
     return () => clearInterval(interval);
-  }, [addViolation]);
+  }, [addViolation, addWarning]);
 
   const handleCameraStatus = useCallback((status, errMsg) => {
     setCameraStatus(status);
