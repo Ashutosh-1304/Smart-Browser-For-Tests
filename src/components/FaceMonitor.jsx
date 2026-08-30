@@ -8,7 +8,7 @@ const WASM_PATH =
 const MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
 const OBJ_MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/1/efficientdet_lite0.tflite';
+  'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite2/float16/1/efficientdet_lite2.tflite';
 const LANDMARK_MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 
@@ -29,18 +29,21 @@ async function createDetector(vision) {
 }
 
 async function createObjectDetector(vision) {
+  // scoreThreshold: 0.30 — balances sensitivity vs. false positives on webcam.
+  // EfficientDet Lite0 scores real objects around 0.25–0.60 on close-range frames.
+  // The 1.5s visual dwell + 3s log dwell in App.jsx handle residual noise.
   try {
     return await ObjectDetector.createFromOptions(vision, {
       baseOptions: { modelAssetPath: OBJ_MODEL_URL, delegate: 'GPU' },
       runningMode: 'VIDEO',
-      scoreThreshold: 0.18,
+      scoreThreshold: 0.40,
     });
   } catch (err) {
     console.warn('GPU delegate for ObjectDetector failed, falling back to CPU:', err);
     return await ObjectDetector.createFromOptions(vision, {
       baseOptions: { modelAssetPath: OBJ_MODEL_URL, delegate: 'CPU' },
       runningMode: 'VIDEO',
-      scoreThreshold: 0.18,
+      scoreThreshold: 0.40,
     });
   }
 }
@@ -72,8 +75,42 @@ const FRIENDLY_NAMES = {
   'mouse': 'Computer Mouse',
   'keyboard': 'Keyboard',
   'tv': 'Monitor / Display',
-  'remote': 'Remote Control',
+  'remote': 'Remote / Phone',
+  'remote control': 'Remote / Phone',
 };
+
+// ── Category allowlist ────────────────────────────────────────────────────────
+// EfficientDet Lite0 is trained on COCO 80-class labels. On a close-range webcam
+// it commonly hallucinates outdoor categories (boat, airplane, train, bus, etc.)
+// because indoor textures / face/shirt silhouettes trigger those class activations.
+//
+// We use an EXPLICIT ALLOWLIST of categories that are genuinely meaningful in a
+// proctoring context. Anything outside this set is silently ignored regardless
+// of confidence or box size. This completely eliminates "boat" and similar noise.
+const ALLOWED_OBSTACLE_CATEGORIES = new Set([
+  'cell phone',
+  'laptop',
+  'book',
+  'bottle',
+  'cup',
+  'scissors',
+  'mouse',
+  'keyboard',
+  'remote',
+  'remote control',
+  'tv',
+  'monitor',
+  'paper',
+  'pen',
+  'pencil',
+  'earphone',
+  'earphones',
+  'headphone',
+  'headphones',
+  'tablet',
+  'ipad',
+]);
+
 
 function analyzeGaze(landmarks) {
   if (!landmarks || landmarks.length < 478) {
@@ -155,10 +192,17 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
   const streamRef = useRef(null);
   const rafRef = useRef(null);
 
+  // Local per-category first-seen timestamps for the VISUAL dwell filter.
+  // A red box is only drawn once an object has been continuously detected
+  // for VISUAL_DWELL_MS — stops flickering ghost boxes from brief false positives.
+  const localObstacleSince = useRef({});
+  const localLastSeen = useRef({});
+  const VISUAL_DWELL_MS = 1500; // ms before we render the bounding box
+
   useEffect(() => {
     let cancelled = false;
 
-    function drawBoxes(faceDetections, obstacleDetections, gazeInfo, landmarksList) {
+    function drawBoxes(faceDetections, obstacleDetections, gazeInfo, landmarksList, confirmedObstacleCategories) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
       if (!canvas || !video || !video.videoWidth) return;
@@ -206,11 +250,19 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
       }
 
       // 3) Draw Obstacle Detections
+      // Only render a box if the object has been continuously present for
+      // VISUAL_DWELL_MS (1.5s). This prevents ghost/flickering boxes from
+      // brief model mis-fires — the confirmedObstacleCategories set is built
+      // in the detection loop below using localObstacleSince.
       (obstacleDetections || []).forEach((d) => {
         const categoryRaw = d.categories?.[0]?.categoryName || d.categories?.[0]?.displayName;
         if (!categoryRaw) return;
-        
+
         const category = categoryRaw.toLowerCase().trim();
+
+        // Skip box if object hasn't dwelled long enough visually
+        if (!confirmedObstacleCategories || !confirmedObstacleCategories.has(category)) return;
+
         const score = d.categories?.[0]?.score || 0;
         const b = d.boundingBox;
 
@@ -290,13 +342,81 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
                 }
               }
 
-              // Obstacles = any detected object except candidate/person
+              // ── Obstacle filter ──────────────────────────────────────────────
+              // 1) Exclude 'person'.
+              // 2) Minimum bounding box area ≥ 1% of frame.
+              // 3) Category must be in ALLOWED_OBSTACLE_CATEGORIES (explicit
+              //    allowlist). This eliminates 'boat', 'airplane', 'train' and
+              //    all other outdoor COCO hallucinations EfficientDet fires on
+              //    webcam backgrounds / face silhouettes.
+              const frameArea = (v.videoWidth || 640) * (v.videoHeight || 480);
+              const MIN_BOX_AREA_RATIO = 0.01; // 1 %
+
               const obstacleDetections = objectDetections.filter(d => {
                 const catName = d.categories?.[0]?.categoryName || d.categories?.[0]?.displayName;
-                return catName && catName.toLowerCase().trim() !== 'person';
+                if (!catName) return false;
+                const cat = catName.toLowerCase().trim();
+                if (cat === 'person') return false;
+                if (!ALLOWED_OBSTACLE_CATEGORIES.has(cat)) return false; // blocklist everything outside allowlist
+                const b = d.boundingBox;
+                const boxArea = (b?.width || 0) * (b?.height || 0);
+                return boxArea / frameArea >= MIN_BOX_AREA_RATIO;
               });
 
-              drawBoxes(faceDetections, obstacleDetections, gazeInfo, landmarksList);
+              // ── Throttled debug log (every 2 s) ─────────────────────────────
+              // Shows ALL raw model hits (before person-filter & area-filter)
+              // so we can see what the model is actually returning.
+              // ⚠️  Open Electron DevTools (Cmd+Opt+I → Console) to read these.
+              const nowMs = performance.now();
+              if (!FaceMonitor._lastObjLog || nowMs - FaceMonitor._lastObjLog > 2000) {
+                FaceMonitor._lastObjLog = nowMs;
+                if (objectDetections.length > 0) {
+                  console.debug('[ObjDetect] raw →',
+                    objectDetections.map(d => {
+                      const b = d.boundingBox;
+                      const area = Math.round((b?.width * b?.height / frameArea) * 100);
+                      return `${d.categories[0]?.categoryName}(${Math.round((d.categories[0]?.score||0)*100)}% area=${area}%)`;
+                    }).join(' | ')
+                  );
+                } else {
+                  console.debug('[ObjDetect] no hits above threshold');
+                }
+              }
+              // ────────────────────────────────────────────────────────────────
+
+              // ── Visual dwell filter ──────────────────────────────────────────
+              // Red box only renders once a category has been continuously
+              // present for VISUAL_DWELL_MS (1.5s). Stable false positives from
+              // background clutter will still pass this — the debug log above
+              // will show their category name so we can blocklist them.
+              const activeCategories = new Set(
+                obstacleDetections.map(d =>
+                  (d.categories?.[0]?.categoryName || d.categories?.[0]?.displayName || '').toLowerCase().trim()
+                ).filter(Boolean)
+              );
+
+              activeCategories.forEach(cat => {
+                localLastSeen.current[cat] = nowMs;
+                if (localObstacleSince.current[cat] == null) {
+                  localObstacleSince.current[cat] = nowMs;
+                }
+              });
+
+              Object.keys(localObstacleSince.current).forEach(cat => {
+                if (!activeCategories.has(cat) && nowMs - (localLastSeen.current[cat] || 0) > 800) {
+                  delete localObstacleSince.current[cat];
+                  delete localLastSeen.current[cat];
+                }
+              });
+
+              const confirmedObstacleCategories = new Set(
+                Object.keys(localObstacleSince.current).filter(
+                  cat => nowMs - localObstacleSince.current[cat] >= VISUAL_DWELL_MS
+                )
+              );
+              // ────────────────────────────────────────────────────────────────
+
+              drawBoxes(faceDetections, obstacleDetections, gazeInfo, landmarksList, confirmedObstacleCategories);
 
               const detectedObstacles = obstacleDetections.map(d => {
                 const catName = d.categories[0].categoryName || d.categories[0].displayName || 'object';
