@@ -16,9 +16,9 @@
 
 // ── Priority tiers ──────────────────────────────────────────────────────────
 // Values are tuned so auto-normalized weights match the desired distribution:
-//   HIGH     → 5/20 = 0.25 each  (multiple-faces, face)
-//   MEDIUM_HIGH → 4/20 = 0.20    (gaze)
-//   MEDIUM   → 3/20 = 0.15 each  (focus, fullscreen)
+//   HIGH         → 5/23 ≈ 0.22 each  (multiple-faces, face)
+//   MEDIUM_HIGH  → 4/23 ≈ 0.17       (gaze)
+//   MEDIUM       → 3/23 ≈ 0.13 each  (focus, fullscreen, obstacle)
 const PRIORITY_VALUES = {
   HIGH: 5,
   MEDIUM_HIGH: 4,
@@ -54,6 +54,11 @@ const DEFAULT_VIOLATION_CONFIG = {
     priority: 'MEDIUM',
     deduction: 10,
     label: 'Fullscreen Exit',
+  },
+  obstacle: {
+    priority: 'MEDIUM',
+    deduction: 8,
+    label: 'Object Detected',
   },
 };
 

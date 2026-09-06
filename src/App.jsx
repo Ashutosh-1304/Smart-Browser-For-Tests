@@ -5,6 +5,24 @@ import Dashboard from './components/Dashboard.jsx';
 import { useWindowEvents } from './hooks/useWindowEvents.js';
 import { useFairnessScore } from './hooks/useFairnessScore.js';
 
+// ── Code → URL decoder (mirrors website/script.js encoding) ──────────────
+function decodeTestCode(code) {
+  const sep = code.indexOf('-');
+  if (sep === -1) return null;
+
+  const b64part = code.slice(sep + 1);
+
+  // Restore standard base64 chars and padding
+  let b64 = b64part.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+
+  try {
+    return decodeURIComponent(escape(atob(b64)));
+  } catch {
+    return null;
+  }
+}
+
 // Default assessment URL loaded on startup.
 const DEFAULT_URL = 'https://google.com';
 
@@ -13,6 +31,39 @@ let violationId = 0;
 let urlLogId = 0;
 
 export default function App() {
+  // ── Code-entry gate ─────────────────────────────────────────────────────
+  const [started, setStarted] = useState(false);
+  const [testCode, setTestCode] = useState('');
+  const [codeError, setCodeError] = useState('');
+
+  const handleStartWithCode = () => {
+    const trimmed = testCode.trim();
+    if (!trimmed) {
+      setCodeError('Please enter a test code.');
+      return;
+    }
+    const decoded = decodeTestCode(trimmed);
+    if (!decoded) {
+      setCodeError('Invalid code. Please check and try again.');
+      return;
+    }
+    try {
+      new URL(decoded);
+    } catch {
+      setCodeError('Invalid code. Could not extract a valid URL.');
+      return;
+    }
+    setCodeError('');
+    setUrlInput(decoded);
+    setActiveUrl(decoded);
+    setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: decoded }]);
+    setStarted(true);
+  };
+
+  const handleStartWithoutCode = () => {
+    setStarted(true);
+  };
+
   const [urlInput, setUrlInput] = useState(DEFAULT_URL);
   const [activeUrl, setActiveUrl] = useState(DEFAULT_URL);
 
@@ -233,26 +284,22 @@ export default function App() {
       }
 
       // 4) Obstacle / Object Detections
-      //    Dwell threshold : 3 000 ms  — the YOLO model is aggressive so we
-      //    require the object to be present for a full 3 seconds before we log
-      //    anything, reducing false-positive spam.
-      //    Cooldown        : 5 000 ms  — at most one warning every 5 s per category.
-      //    Scoring         : addWarning() is used here (not addViolation) so these
-      //    events appear in the audit log but do NOT deduct from the fairness score.
+      //    Dwell threshold : 1 000 ms  — object must be present for 1 second
+      //    before logging a violation.
+      //    Cooldown        : 5 000 ms  — at most one violation every 5 s per category.
+      //    Scoring         : addViolation() deducts from the fairness score.
       Object.keys(obstacleSince.current).forEach((cat) => {
         const detectedAt = obstacleSince.current[cat];
         const lastViolatedAt = lastObstacleViolation.current[cat] || 0;
 
         if (
           detectedAt &&
-          now - detectedAt > 3000 &&   // ← 3-second dwell before warning
+          now - detectedAt > 1000 &&   // ← 1-second dwell before violation
           now - lastViolatedAt > 5000
         ) {
           lastObstacleViolation.current[cat] = now;
           const friendlyName = FRIENDLY_NAMES[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
-          // Use addWarning so the log entry is marked [OBJECT DETECTED] but
-          // the fairness score is NOT penalised (intentional — scoring TBD).
-          addWarning('obstacle', `[OBJECT DETECTED] ${friendlyName} present for 3+ seconds`);
+          addViolation('obstacle', `[OBJECT DETECTED] ${friendlyName} present for 1+ second`);
         }
       });
 
@@ -279,7 +326,7 @@ export default function App() {
 
     }, 500);
     return () => clearInterval(interval);
-  }, [addViolation, addWarning]);
+  }, [addViolation]);
 
   const handleCameraStatus = useCallback((status, errMsg) => {
     setCameraStatus(status);
@@ -307,6 +354,44 @@ export default function App() {
     setActiveUrl(next);
     // Don't logUrl here — the webview's did-navigate event will log it
   };
+
+  // ── Code-entry landing screen ──────────────────────────────────────────
+  if (!started) {
+    return (
+      <div className="code-entry-screen">
+        <div className="code-entry-card">
+          <div className="code-entry-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <h1 className="code-entry-title">Smart Browser</h1>
+          <p className="code-entry-subtitle">Secure Assessment Platform</p>
+
+          <div className="code-entry-form">
+            <label className="code-entry-label">Enter Test Code</label>
+            <input
+              className="code-entry-input"
+              type="text"
+              value={testCode}
+              onChange={(e) => { setTestCode(e.target.value); setCodeError(''); }}
+              onKeyDown={(e) => e.key === 'Enter' && handleStartWithCode()}
+              placeholder="Paste your test code here..."
+              autoFocus
+              spellCheck={false}
+            />
+            {codeError && <p className="code-entry-error">{codeError}</p>}
+            <button className="code-entry-btn" onClick={handleStartWithCode}>
+              Start Test
+            </button>
+            <button className="code-entry-skip" onClick={handleStartWithoutCode}>
+              Skip — enter URL manually
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -365,3 +450,4 @@ export default function App() {
     </div>
   );
 }
+

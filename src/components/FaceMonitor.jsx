@@ -197,7 +197,7 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
   // for VISUAL_DWELL_MS — stops flickering ghost boxes from brief false positives.
   const localObstacleSince = useRef({});
   const localLastSeen = useRef({});
-  const VISUAL_DWELL_MS = 1500; // ms before we render the bounding box
+  const VISUAL_DWELL_MS = 1000; // ms before we render the bounding box
 
   useEffect(() => {
     let cancelled = false;
