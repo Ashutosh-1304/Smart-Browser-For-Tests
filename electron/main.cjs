@@ -8,6 +8,18 @@
 // ---------------------------------------------------------------------------
 const { app, BrowserWindow, session, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
+
+const codesFilePath = path.join(__dirname, '..', 'codes.json');
+
+function readCodesFromFile() {
+  try {
+    if (!fs.existsSync(codesFilePath)) return [];
+    return JSON.parse(fs.readFileSync(codesFilePath, 'utf8') || '[]');
+  } catch {
+    return [];
+  }
+}
 
 const isDev = !app.isPackaged;
 const DEV_URL = 'http://127.0.0.1:5173';
@@ -75,6 +87,31 @@ ipcMain.handle('toggle-fullscreen', (_event, enable) => {
     return mainWindow.isFullScreen();
   }
   return false;
+});
+
+// Verify test code from codes.json
+ipcMain.handle('verify-code', (_event, code) => {
+  const cleanCode = (code || '').trim().toUpperCase();
+  if (!cleanCode) return { valid: false, error: 'Please enter a test code.' };
+
+  const codes = readCodesFromFile();
+  const record = codes.find((entry) => entry.code === cleanCode);
+
+  if (!record) {
+    return { valid: false, error: 'Invalid test code. Please check and try again.' };
+  }
+
+  const now = Date.now();
+  const expiry = record.expiresTimestamp || (record.expiresAt ? new Date(record.expiresAt).getTime() : 0);
+  if (expiry && now > expiry) {
+    return {
+      valid: false,
+      expired: true,
+      error: 'This test code has expired. Codes are only valid for 20 seconds.',
+    };
+  }
+
+  return { valid: true, url: record.url, code: record.code, record };
 });
 
 app.whenReady().then(() => {

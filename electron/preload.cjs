@@ -14,4 +14,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   // Ask the main process to enter/exit real OS fullscreen.
   toggleFullscreen: (enable) => ipcRenderer.invoke('toggle-fullscreen', enable),
+  // Verify test code from codes.json
+  verifyCode: (code) => ipcRenderer.invoke('verify-code', code),
 });

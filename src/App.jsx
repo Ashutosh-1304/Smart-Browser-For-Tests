@@ -5,7 +5,76 @@ import Dashboard from './components/Dashboard.jsx';
 import { useWindowEvents } from './hooks/useWindowEvents.js';
 import { useFairnessScore } from './hooks/useFairnessScore.js';
 
-// ── Code → URL decoder (mirrors website/script.js encoding) ──────────────
+// ── Database & Code Verification ──────────────────────────────────────────
+const CODES_STORAGE_KEY = 'smartbrowser_codes';
+
+/**
+ * Verify a test code against the database (codes.json / local API / IPC / localStorage).
+ * - Looks up 6-character alphanumeric code.
+ * - Rejects expired codes (exactly 20-second validity).
+ * - Fallback to legacy prefix-base64 format.
+ */
+async function verifyTestCode(code) {
+  if (!code) return { valid: false, error: 'Please enter a test code.' };
+  const cleanCode = code.trim().toUpperCase();
+
+  // 1. Check Electron IPC bridge (reads directly from codes.json in filesystem)
+  if (typeof window !== 'undefined' && window.electronAPI && typeof window.electronAPI.verifyCode === 'function') {
+    try {
+      const ipcResult = await window.electronAPI.verifyCode(cleanCode);
+      if (ipcResult && (ipcResult.valid || ipcResult.expired)) {
+        return ipcResult;
+      }
+    } catch {
+      // Continue to API check
+    }
+  }
+
+  // 2. Check local dev server API (/api/codes/:code)
+  try {
+    const apiTarget = window.location.port === '5173'
+      ? `/api/codes/${encodeURIComponent(cleanCode)}`
+      : `http://127.0.0.1:5173/api/codes/${encodeURIComponent(cleanCode)}`;
+    const res = await fetch(apiTarget);
+    const data = await res.json();
+    if (res.ok && data.valid) return data;
+    if (data.expired) return data;
+    if (data.error && res.status !== 404) return data;
+  } catch {
+    // Continue to localStorage fallback
+  }
+
+  // 3. Fallback: localStorage
+  let codes = [];
+  try {
+    codes = JSON.parse(localStorage.getItem(CODES_STORAGE_KEY) || '[]');
+  } catch {
+    codes = [];
+  }
+
+  const record = codes.find((entry) => entry.code === cleanCode);
+  if (record) {
+    const now = Date.now();
+    const expiry = record.expiresTimestamp || (record.expiresAt ? new Date(record.expiresAt).getTime() : 0);
+    if (expiry && now > expiry) {
+      return {
+        valid: false,
+        error: 'This test code has expired. Codes are only valid for 20 seconds.',
+        expired: true,
+      };
+    }
+    return { valid: true, url: record.url, code: record.code, record };
+  }
+
+  // 4. Fallback: Check legacy format (prefix-base64)
+  const legacyUrl = decodeTestCode(code.trim());
+  if (legacyUrl) {
+    return { valid: true, url: legacyUrl, code: cleanCode };
+  }
+
+  return { valid: false, error: 'Invalid test code. Please check and try again.' };
+}
+
 function decodeTestCode(code) {
   const sep = code.indexOf('-');
   if (sep === -1) return null;
@@ -31,37 +100,117 @@ let violationId = 0;
 let urlLogId = 0;
 
 export default function App() {
-  // ── Code-entry gate ─────────────────────────────────────────────────────
+  // ── Code-entry & Student Login gate ────────────────────────────────────
   const [started, setStarted] = useState(false);
+  const [authStep, setAuthStep] = useState('code'); // 'code' | 'student_form'
   const [testCode, setTestCode] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [verifiedUrl, setVerifiedUrl] = useState('');
+  const [verifiedCode, setVerifiedCode] = useState('');
 
-  const handleStartWithCode = () => {
+  // Student details form state (Enrollment Number & Batch ONLY)
+  const [enrollmentNumber, setEnrollmentNumber] = useState('');
+  const [batch, setBatch] = useState('');
+  const [studentError, setStudentError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const handleStartWithCode = async () => {
     const trimmed = testCode.trim();
     if (!trimmed) {
       setCodeError('Please enter a test code.');
       return;
     }
-    const decoded = decodeTestCode(trimmed);
-    if (!decoded) {
-      setCodeError('Invalid code. Please check and try again.');
-      return;
-    }
-    try {
-      new URL(decoded);
-    } catch {
-      setCodeError('Invalid code. Could not extract a valid URL.');
-      return;
-    }
+    setVerifyingCode(true);
     setCodeError('');
-    setUrlInput(decoded);
-    setActiveUrl(decoded);
-    setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: decoded }]);
-    setStarted(true);
+    try {
+      const result = await verifyTestCode(trimmed);
+      if (!result.valid) {
+        setCodeError(result.error || 'Invalid code. Please check and try again.');
+        return;
+      }
+      try {
+        new URL(result.url);
+      } catch {
+        setCodeError('Invalid code. Could not extract a valid URL.');
+        return;
+      }
+      setCodeError('');
+      setVerifiedCode(result.code);
+      setVerifiedUrl(result.url);
+      // Move to student details form after successful code verification
+      setAuthStep('student_form');
+    } finally {
+      setVerifyingCode(false);
+    }
+  };
+
+  const handleStudentSubmit = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const trimmedEnrollment = enrollmentNumber.trim();
+    const trimmedBatch = batch.trim();
+
+    if (!trimmedEnrollment && !trimmedBatch) {
+      setStudentError('Enrollment Number and Batch are required.');
+      return;
+    }
+    if (!trimmedEnrollment) {
+      setStudentError('Enrollment Number is required.');
+      return;
+    }
+    if (!trimmedBatch) {
+      setStudentError('Batch is required.');
+      return;
+    }
+
+    setStudentError('');
+    setSuccessMessage('Student details verified! Starting assessment...');
+
+    // Save student details using the existing frontend storage method (localStorage)
+    const studentData = {
+      enrollmentNumber: trimmedEnrollment,
+      batch: trimmedBatch,
+      testCode: verifiedCode,
+      url: verifiedUrl,
+      timestamp: Date.now(),
+      submittedAt: new Date().toISOString(),
+    };
+
+    try {
+      localStorage.setItem('smartbrowser_student', JSON.stringify(studentData));
+      const history = JSON.parse(localStorage.getItem('smartbrowser_students') || '[]');
+      history.unshift(studentData);
+      localStorage.setItem('smartbrowser_students', JSON.stringify(history));
+
+      // Also link to the matching test code in smartbrowser_codes if present
+      const codes = JSON.parse(localStorage.getItem(CODES_STORAGE_KEY) || '[]');
+      const target = codes.find((c) => c.code === verifiedCode);
+      if (target) {
+        if (!target.students) target.students = [];
+        target.students.push({
+          enrollmentNumber: trimmedEnrollment,
+          batch: trimmedBatch,
+          submittedAt: new Date().toISOString(),
+        });
+        localStorage.setItem(CODES_STORAGE_KEY, JSON.stringify(codes));
+      }
+    } catch (err) {
+      console.error('Failed to save student details to localStorage:', err);
+    }
+
+    // Brief delay to display success message, then continue to the existing test page
+    setTimeout(() => {
+      setUrlInput(verifiedUrl);
+      setActiveUrl(verifiedUrl);
+      setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: verifiedUrl }]);
+      setStarted(true);
+    }, 600);
   };
 
   const handleStartWithoutCode = () => {
-    setStarted(true);
+    setVerifiedUrl(urlInput);
+    setVerifiedCode('MANUAL');
+    setAuthStep('student_form');
   };
 
   const [urlInput, setUrlInput] = useState(DEFAULT_URL);
@@ -365,29 +514,81 @@ export default function App() {
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
           </div>
-          <h1 className="code-entry-title">Smart Browser</h1>
-          <p className="code-entry-subtitle">Secure Assessment Platform</p>
+          {authStep === 'code' ? (
+            <>
+              <h1 className="code-entry-title">Smart Browser</h1>
+              <p className="code-entry-subtitle">Secure Assessment Platform</p>
 
-          <div className="code-entry-form">
-            <label className="code-entry-label">Enter Test Code</label>
-            <input
-              className="code-entry-input"
-              type="text"
-              value={testCode}
-              onChange={(e) => { setTestCode(e.target.value); setCodeError(''); }}
-              onKeyDown={(e) => e.key === 'Enter' && handleStartWithCode()}
-              placeholder="Paste your test code here..."
-              autoFocus
-              spellCheck={false}
-            />
-            {codeError && <p className="code-entry-error">{codeError}</p>}
-            <button className="code-entry-btn" onClick={handleStartWithCode}>
-              Start Test
-            </button>
-            <button className="code-entry-skip" onClick={handleStartWithoutCode}>
-              Skip — enter URL manually
-            </button>
-          </div>
+              <div className="code-entry-form">
+                <label className="code-entry-label" htmlFor="testCodeInput">Enter Test Code</label>
+                <input
+                  id="testCodeInput"
+                  className="code-entry-input"
+                  type="text"
+                  value={testCode}
+                  onChange={(e) => { setTestCode(e.target.value); setCodeError(''); }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleStartWithCode()}
+                  placeholder="e.g. A7X9K2"
+                  autoFocus
+                  spellCheck={false}
+                />
+                {codeError && <p className="code-entry-error">{codeError}</p>}
+                <button className="code-entry-btn" id="verifyCodeBtn" onClick={handleStartWithCode} disabled={verifyingCode}>
+                  {verifyingCode ? 'Verifying...' : 'Start Test'}
+                </button>
+                <button className="code-entry-skip" onClick={handleStartWithoutCode}>
+                  Skip — enter URL manually
+                </button>
+              </div>
+            </>
+          ) : (
+            <form className="code-entry-form" onSubmit={handleStudentSubmit} id="studentDetailsForm">
+              <div className="code-verified-badge">
+                <span>Code: <strong>{verifiedCode}</strong> Verified</span>
+              </div>
+              <h1 className="code-entry-title">Student Details</h1>
+              <p className="code-entry-subtitle">Enter your information to proceed</p>
+
+              <div className="form-field">
+                <label className="code-entry-label" htmlFor="enrollmentInput">Enrollment Number</label>
+                <input
+                  id="enrollmentInput"
+                  className="code-entry-input"
+                  type="text"
+                  value={enrollmentNumber}
+                  onChange={(e) => { setEnrollmentNumber(e.target.value); setStudentError(''); }}
+                  placeholder="e.g. 0101IT211025"
+                  autoFocus
+                />
+              </div>
+
+              <div className="form-field">
+                <label className="code-entry-label" htmlFor="batchInput">Batch</label>
+                <input
+                  id="batchInput"
+                  className="code-entry-input"
+                  type="text"
+                  value={batch}
+                  onChange={(e) => { setBatch(e.target.value); setStudentError(''); }}
+                  placeholder="e.g. 2021-2025"
+                />
+              </div>
+
+              {studentError && <p className="code-entry-error" id="studentErrorText">{studentError}</p>}
+              {successMessage && <p className="code-entry-success" id="studentSuccessText">{successMessage}</p>}
+
+              <button className="code-entry-btn" id="continueBtn" type="submit">
+                Continue
+              </button>
+              <button
+                type="button"
+                className="code-entry-skip"
+                onClick={() => { setAuthStep('code'); setStudentError(''); setSuccessMessage(''); }}
+              >
+                ← Back to Code Entry
+              </button>
+            </form>
+          )}
         </div>
       </div>
     );
