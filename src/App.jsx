@@ -9,15 +9,42 @@ import { useFairnessScore } from './hooks/useFairnessScore.js';
 const CODES_STORAGE_KEY = 'smartbrowser_codes';
 
 /**
- * Verify a test code against the database (localStorage).
+ * Verify a test code against the database (codes.json / local API / IPC / localStorage).
  * - Looks up 6-character alphanumeric code.
  * - Rejects expired codes (exactly 20-second validity).
  * - Fallback to legacy prefix-base64 format.
  */
-function verifyTestCode(code) {
+async function verifyTestCode(code) {
   if (!code) return { valid: false, error: 'Please enter a test code.' };
   const cleanCode = code.trim().toUpperCase();
 
+  // 1. Check Electron IPC bridge (reads directly from codes.json in filesystem)
+  if (typeof window !== 'undefined' && window.electronAPI && typeof window.electronAPI.verifyCode === 'function') {
+    try {
+      const ipcResult = await window.electronAPI.verifyCode(cleanCode);
+      if (ipcResult && (ipcResult.valid || ipcResult.expired)) {
+        return ipcResult;
+      }
+    } catch {
+      // Continue to API check
+    }
+  }
+
+  // 2. Check local dev server API (/api/codes/:code)
+  try {
+    const apiTarget = window.location.port === '5173'
+      ? `/api/codes/${encodeURIComponent(cleanCode)}`
+      : `http://127.0.0.1:5173/api/codes/${encodeURIComponent(cleanCode)}`;
+    const res = await fetch(apiTarget);
+    const data = await res.json();
+    if (res.ok && data.valid) return data;
+    if (data.expired) return data;
+    if (data.error && res.status !== 404) return data;
+  } catch {
+    // Continue to localStorage fallback
+  }
+
+  // 3. Fallback: localStorage
   let codes = [];
   try {
     codes = JSON.parse(localStorage.getItem(CODES_STORAGE_KEY) || '[]');
@@ -39,7 +66,7 @@ function verifyTestCode(code) {
     return { valid: true, url: record.url, code: record.code, record };
   }
 
-  // Fallback: Check legacy format (prefix-base64)
+  // 4. Fallback: Check legacy format (prefix-base64)
   const legacyUrl = decodeTestCode(code.trim());
   if (legacyUrl) {
     return { valid: true, url: legacyUrl, code: cleanCode };
@@ -78,6 +105,7 @@ export default function App() {
   const [authStep, setAuthStep] = useState('code'); // 'code' | 'student_form'
   const [testCode, setTestCode] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [verifyingCode, setVerifyingCode] = useState(false);
   const [verifiedUrl, setVerifiedUrl] = useState('');
   const [verifiedCode, setVerifiedCode] = useState('');
 
@@ -87,28 +115,34 @@ export default function App() {
   const [studentError, setStudentError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const handleStartWithCode = () => {
+  const handleStartWithCode = async () => {
     const trimmed = testCode.trim();
     if (!trimmed) {
       setCodeError('Please enter a test code.');
       return;
     }
-    const result = verifyTestCode(trimmed);
-    if (!result.valid) {
-      setCodeError(result.error || 'Invalid code. Please check and try again.');
-      return;
-    }
-    try {
-      new URL(result.url);
-    } catch {
-      setCodeError('Invalid code. Could not extract a valid URL.');
-      return;
-    }
+    setVerifyingCode(true);
     setCodeError('');
-    setVerifiedCode(result.code);
-    setVerifiedUrl(result.url);
-    // Move to student details form after successful code verification
-    setAuthStep('student_form');
+    try {
+      const result = await verifyTestCode(trimmed);
+      if (!result.valid) {
+        setCodeError(result.error || 'Invalid code. Please check and try again.');
+        return;
+      }
+      try {
+        new URL(result.url);
+      } catch {
+        setCodeError('Invalid code. Could not extract a valid URL.');
+        return;
+      }
+      setCodeError('');
+      setVerifiedCode(result.code);
+      setVerifiedUrl(result.url);
+      // Move to student details form after successful code verification
+      setAuthStep('student_form');
+    } finally {
+      setVerifyingCode(false);
+    }
   };
 
   const handleStudentSubmit = (e) => {
@@ -499,8 +533,8 @@ export default function App() {
                   spellCheck={false}
                 />
                 {codeError && <p className="code-entry-error">{codeError}</p>}
-                <button className="code-entry-btn" id="verifyCodeBtn" onClick={handleStartWithCode}>
-                  Start Test
+                <button className="code-entry-btn" id="verifyCodeBtn" onClick={handleStartWithCode} disabled={verifyingCode}>
+                  {verifyingCode ? 'Verifying...' : 'Start Test'}
                 </button>
                 <button className="code-entry-skip" onClick={handleStartWithoutCode}>
                   Skip — enter URL manually

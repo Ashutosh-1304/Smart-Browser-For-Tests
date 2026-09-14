@@ -202,6 +202,20 @@ function generateCode() {
   if (history.length > 50) history.length = 50;
   saveHistory(history);
 
+  // Sync with shared codes.json via local API server (port 5173)
+  try {
+    const apiTarget = window.location.port === '5173' ? '/api/codes' : 'http://127.0.0.1:5173/api/codes';
+    fetch(apiTarget, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(codeRecord),
+    }).catch(() => {
+      // Offline fallback: handled by localStorage
+    });
+  } catch {
+    // Graceful fallback
+  }
+
   // Show result
   document.getElementById('codeText').textContent = code;
   document.getElementById('resultLink').textContent = fullUrl;
