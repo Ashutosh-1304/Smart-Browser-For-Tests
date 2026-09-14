@@ -5,7 +5,49 @@ import Dashboard from './components/Dashboard.jsx';
 import { useWindowEvents } from './hooks/useWindowEvents.js';
 import { useFairnessScore } from './hooks/useFairnessScore.js';
 
-// ── Code → URL decoder (mirrors website/script.js encoding) ──────────────
+// ── Database & Code Verification ──────────────────────────────────────────
+const CODES_STORAGE_KEY = 'smartbrowser_codes';
+
+/**
+ * Verify a test code against the database (localStorage).
+ * - Looks up 6-character alphanumeric code.
+ * - Rejects expired codes (exactly 20-second validity).
+ * - Fallback to legacy prefix-base64 format.
+ */
+function verifyTestCode(code) {
+  if (!code) return { valid: false, error: 'Please enter a test code.' };
+  const cleanCode = code.trim().toUpperCase();
+
+  let codes = [];
+  try {
+    codes = JSON.parse(localStorage.getItem(CODES_STORAGE_KEY) || '[]');
+  } catch {
+    codes = [];
+  }
+
+  const record = codes.find((entry) => entry.code === cleanCode);
+  if (record) {
+    const now = Date.now();
+    const expiry = record.expiresTimestamp || (record.expiresAt ? new Date(record.expiresAt).getTime() : 0);
+    if (expiry && now > expiry) {
+      return {
+        valid: false,
+        error: 'This test code has expired. Codes are only valid for 20 seconds.',
+        expired: true,
+      };
+    }
+    return { valid: true, url: record.url, code: record.code, record };
+  }
+
+  // Fallback: Check legacy format (prefix-base64)
+  const legacyUrl = decodeTestCode(code.trim());
+  if (legacyUrl) {
+    return { valid: true, url: legacyUrl, code: cleanCode };
+  }
+
+  return { valid: false, error: 'Invalid test code. Please check and try again.' };
+}
+
 function decodeTestCode(code) {
   const sep = code.indexOf('-');
   if (sep === -1) return null;
@@ -42,21 +84,21 @@ export default function App() {
       setCodeError('Please enter a test code.');
       return;
     }
-    const decoded = decodeTestCode(trimmed);
-    if (!decoded) {
-      setCodeError('Invalid code. Please check and try again.');
+    const result = verifyTestCode(trimmed);
+    if (!result.valid) {
+      setCodeError(result.error || 'Invalid code. Please check and try again.');
       return;
     }
     try {
-      new URL(decoded);
+      new URL(result.url);
     } catch {
       setCodeError('Invalid code. Could not extract a valid URL.');
       return;
     }
     setCodeError('');
-    setUrlInput(decoded);
-    setActiveUrl(decoded);
-    setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: decoded }]);
+    setUrlInput(result.url);
+    setActiveUrl(result.url);
+    setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: result.url }]);
     setStarted(true);
   };
 
@@ -371,17 +413,18 @@ export default function App() {
           <div className="code-entry-form">
             <label className="code-entry-label">Enter Test Code</label>
             <input
+              id="testCodeInput"
               className="code-entry-input"
               type="text"
               value={testCode}
               onChange={(e) => { setTestCode(e.target.value); setCodeError(''); }}
               onKeyDown={(e) => e.key === 'Enter' && handleStartWithCode()}
-              placeholder="Paste your test code here..."
+              placeholder="e.g. A7X9K2"
               autoFocus
               spellCheck={false}
             />
             {codeError && <p className="code-entry-error">{codeError}</p>}
-            <button className="code-entry-btn" onClick={handleStartWithCode}>
+            <button className="code-entry-btn" id="verifyCodeBtn" onClick={handleStartWithCode}>
               Start Test
             </button>
             <button className="code-entry-skip" onClick={handleStartWithoutCode}>
