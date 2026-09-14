@@ -73,10 +73,19 @@ let violationId = 0;
 let urlLogId = 0;
 
 export default function App() {
-  // ── Code-entry gate ─────────────────────────────────────────────────────
+  // ── Code-entry & Student Login gate ────────────────────────────────────
   const [started, setStarted] = useState(false);
+  const [authStep, setAuthStep] = useState('code'); // 'code' | 'student_form'
   const [testCode, setTestCode] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [verifiedUrl, setVerifiedUrl] = useState('');
+  const [verifiedCode, setVerifiedCode] = useState('');
+
+  // Student details form state (Enrollment Number & Batch ONLY)
+  const [enrollmentNumber, setEnrollmentNumber] = useState('');
+  const [batch, setBatch] = useState('');
+  const [studentError, setStudentError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleStartWithCode = () => {
     const trimmed = testCode.trim();
@@ -96,14 +105,78 @@ export default function App() {
       return;
     }
     setCodeError('');
-    setUrlInput(result.url);
-    setActiveUrl(result.url);
-    setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: result.url }]);
-    setStarted(true);
+    setVerifiedCode(result.code);
+    setVerifiedUrl(result.url);
+    // Move to student details form after successful code verification
+    setAuthStep('student_form');
+  };
+
+  const handleStudentSubmit = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const trimmedEnrollment = enrollmentNumber.trim();
+    const trimmedBatch = batch.trim();
+
+    if (!trimmedEnrollment && !trimmedBatch) {
+      setStudentError('Enrollment Number and Batch are required.');
+      return;
+    }
+    if (!trimmedEnrollment) {
+      setStudentError('Enrollment Number is required.');
+      return;
+    }
+    if (!trimmedBatch) {
+      setStudentError('Batch is required.');
+      return;
+    }
+
+    setStudentError('');
+    setSuccessMessage('Student details verified! Starting assessment...');
+
+    // Save student details using the existing frontend storage method (localStorage)
+    const studentData = {
+      enrollmentNumber: trimmedEnrollment,
+      batch: trimmedBatch,
+      testCode: verifiedCode,
+      url: verifiedUrl,
+      timestamp: Date.now(),
+      submittedAt: new Date().toISOString(),
+    };
+
+    try {
+      localStorage.setItem('smartbrowser_student', JSON.stringify(studentData));
+      const history = JSON.parse(localStorage.getItem('smartbrowser_students') || '[]');
+      history.unshift(studentData);
+      localStorage.setItem('smartbrowser_students', JSON.stringify(history));
+
+      // Also link to the matching test code in smartbrowser_codes if present
+      const codes = JSON.parse(localStorage.getItem(CODES_STORAGE_KEY) || '[]');
+      const target = codes.find((c) => c.code === verifiedCode);
+      if (target) {
+        if (!target.students) target.students = [];
+        target.students.push({
+          enrollmentNumber: trimmedEnrollment,
+          batch: trimmedBatch,
+          submittedAt: new Date().toISOString(),
+        });
+        localStorage.setItem(CODES_STORAGE_KEY, JSON.stringify(codes));
+      }
+    } catch (err) {
+      console.error('Failed to save student details to localStorage:', err);
+    }
+
+    // Brief delay to display success message, then continue to the existing test page
+    setTimeout(() => {
+      setUrlInput(verifiedUrl);
+      setActiveUrl(verifiedUrl);
+      setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: verifiedUrl }]);
+      setStarted(true);
+    }, 600);
   };
 
   const handleStartWithoutCode = () => {
-    setStarted(true);
+    setVerifiedUrl(urlInput);
+    setVerifiedCode('MANUAL');
+    setAuthStep('student_form');
   };
 
   const [urlInput, setUrlInput] = useState(DEFAULT_URL);
@@ -407,30 +480,81 @@ export default function App() {
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             </svg>
           </div>
-          <h1 className="code-entry-title">Smart Browser</h1>
-          <p className="code-entry-subtitle">Secure Assessment Platform</p>
+          {authStep === 'code' ? (
+            <>
+              <h1 className="code-entry-title">Smart Browser</h1>
+              <p className="code-entry-subtitle">Secure Assessment Platform</p>
 
-          <div className="code-entry-form">
-            <label className="code-entry-label">Enter Test Code</label>
-            <input
-              id="testCodeInput"
-              className="code-entry-input"
-              type="text"
-              value={testCode}
-              onChange={(e) => { setTestCode(e.target.value); setCodeError(''); }}
-              onKeyDown={(e) => e.key === 'Enter' && handleStartWithCode()}
-              placeholder="e.g. A7X9K2"
-              autoFocus
-              spellCheck={false}
-            />
-            {codeError && <p className="code-entry-error">{codeError}</p>}
-            <button className="code-entry-btn" id="verifyCodeBtn" onClick={handleStartWithCode}>
-              Start Test
-            </button>
-            <button className="code-entry-skip" onClick={handleStartWithoutCode}>
-              Skip — enter URL manually
-            </button>
-          </div>
+              <div className="code-entry-form">
+                <label className="code-entry-label" htmlFor="testCodeInput">Enter Test Code</label>
+                <input
+                  id="testCodeInput"
+                  className="code-entry-input"
+                  type="text"
+                  value={testCode}
+                  onChange={(e) => { setTestCode(e.target.value); setCodeError(''); }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleStartWithCode()}
+                  placeholder="e.g. A7X9K2"
+                  autoFocus
+                  spellCheck={false}
+                />
+                {codeError && <p className="code-entry-error">{codeError}</p>}
+                <button className="code-entry-btn" id="verifyCodeBtn" onClick={handleStartWithCode}>
+                  Start Test
+                </button>
+                <button className="code-entry-skip" onClick={handleStartWithoutCode}>
+                  Skip — enter URL manually
+                </button>
+              </div>
+            </>
+          ) : (
+            <form className="code-entry-form" onSubmit={handleStudentSubmit} id="studentDetailsForm">
+              <div className="code-verified-badge">
+                <span>Code: <strong>{verifiedCode}</strong> Verified</span>
+              </div>
+              <h1 className="code-entry-title">Student Details</h1>
+              <p className="code-entry-subtitle">Enter your information to proceed</p>
+
+              <div className="form-field">
+                <label className="code-entry-label" htmlFor="enrollmentInput">Enrollment Number</label>
+                <input
+                  id="enrollmentInput"
+                  className="code-entry-input"
+                  type="text"
+                  value={enrollmentNumber}
+                  onChange={(e) => { setEnrollmentNumber(e.target.value); setStudentError(''); }}
+                  placeholder="e.g. 0101IT211025"
+                  autoFocus
+                />
+              </div>
+
+              <div className="form-field">
+                <label className="code-entry-label" htmlFor="batchInput">Batch</label>
+                <input
+                  id="batchInput"
+                  className="code-entry-input"
+                  type="text"
+                  value={batch}
+                  onChange={(e) => { setBatch(e.target.value); setStudentError(''); }}
+                  placeholder="e.g. 2021-2025"
+                />
+              </div>
+
+              {studentError && <p className="code-entry-error" id="studentErrorText">{studentError}</p>}
+              {successMessage && <p className="code-entry-success" id="studentSuccessText">{successMessage}</p>}
+
+              <button className="code-entry-btn" id="continueBtn" type="submit">
+                Continue
+              </button>
+              <button
+                type="button"
+                className="code-entry-skip"
+                onClick={() => { setAuthStep('code'); setStudentError(''); setSuccessMessage(''); }}
+              >
+                ← Back to Code Entry
+              </button>
+            </form>
+          )}
         </div>
       </div>
     );
