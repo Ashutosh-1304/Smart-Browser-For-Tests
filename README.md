@@ -5,6 +5,33 @@
 
 ---
 
+## 🔄 Platform Flow (Teacher → Student)
+
+This is the canonical end-to-end flow the platform is built around. The student **registers their details first**, then enters the teacher's code, which is the access gate that starts the test.
+
+> This is **registration / identity capture**, not a password login — there are no accounts. The **code entry** is the actual access-control step.
+
+```
+TEACHER (website)
+  1. Paste the assessment link (Google Form, YouTube, any URL)
+  2. Choose a strictness preset (Level 1 / 2 / 3 / Custom) + optional expiry
+  3. Generate a 6-char alphanumeric code (stored in the backend DB)
+  4. Share the code with students
+
+STUDENT (Electron app)
+  1. Registration screen — enter & validate: Name, Enrollment Number, Batch, Email
+  2. Enter the 6-char code → backend resolves it (rejects unknown / expired / revoked)
+  3. Pre-flight system check — camera works, face detected, network up
+  4. Consent notice → camera starts
+  5. Test window opens: the resolved URL loads in the secure webview;
+     monitoring + fairness engine run under the code's strictness preset
+  6. On session end: fairness score + violations + identity are saved
+```
+
+Steps of this flow are tracked across the project's open issues (registration/code flow, backend/DB, code format, strictness presets, expiry, pre-flight check, consent, and results persistence).
+
+---
+
 ## 🚀 Quick Start / Local Setup
 
 Follow these steps to run the application locally on your machine:
