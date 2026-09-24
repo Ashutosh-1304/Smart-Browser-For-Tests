@@ -248,6 +248,53 @@ To package the application into a standalone `.exe` installer (Windows):
 
 ---
 
+## Backend API & Test Code Service
+
+The repository includes a Node.js + Express backend service backed by a persistent SQLite database (using Knex.js query builder and migrations). The backend serves as the single source of truth for generating, persisting, validating, and resolving 6-character assessment test codes across devices.
+
+### Schema (`codes` table)
+
+| Column | Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `VARCHAR` | Primary Key, UUID | Unique internal record identifier |
+| `code` | `VARCHAR(6)` | Unique, Indexed, Not Null | 6-character uppercase alphanumeric code (`[A-Z2-9]`) |
+| `target_url` | `TEXT` | Not Null | Validated HTTP/HTTPS assessment destination link |
+| `created_at` | `TIMESTAMP` | Default NOW, Not Null | Creation timestamp |
+| `expires_at` | `TIMESTAMP` | Nullable | Optional code expiration timestamp |
+| `status` | `VARCHAR(20)` | Default 'active', Not Null | Code status: `active`, `expired`, or `revoked` |
+| `hit_count` | `INTEGER` | Default 0, Not Null | Count of successful resolutions |
+| `created_by` | `TEXT` | Nullable | Reserved for teacher identifier |
+
+### Endpoints
+
+- `GET /api/health` — Service liveness and database connection status probe.
+- `POST /api/codes` — Body: `{ "url": "https://..." }`. Validates URL, generates a unique 6-character code, and stores it in the database.
+- `GET /api/codes/:code` — Resolves the code to `{ "code": "...", "url": "...", "status": "active" }` and increments `hit_count`. Returns `404` for unknown codes and `410` for revoked/expired codes.
+- `GET /api/codes` — Returns recent codes for teacher dashboard/history. Query param: `?limit=20`.
+- `POST /api/codes/:code/revoke` — Revokes a test code.
+
+### Running the Backend
+
+```bash
+# Run server standalone
+npm run dev:server
+
+# Run backend tests
+npm run test:server
+
+# Run full development stack (Backend + Vite UI + Electron)
+npm run dev
+```
+
+### Environment Configuration
+
+Environment variables can be customized in `.env` (refer to `.env.example`):
+- `PORT` (default `3001`): HTTP port for the API server.
+- `DATABASE_PATH` (default `./data/smartbrowser.db`): Path to SQLite database file.
+- `CORS_ORIGIN`: Allowed origins separated by comma.
+
+---
+
 ## File Reference
 
 | File | Location / Link | Purpose |

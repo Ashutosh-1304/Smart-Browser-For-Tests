@@ -5,14 +5,12 @@ import Dashboard from './components/Dashboard.jsx';
 import { useWindowEvents } from './hooks/useWindowEvents.js';
 import { useFairnessScore } from './hooks/useFairnessScore.js';
 
-// ── Code → URL decoder (mirrors website/script.js encoding) ──────────────
 function decodeTestCode(code) {
   const sep = code.indexOf('-');
   if (sep === -1) return null;
 
   const b64part = code.slice(sep + 1);
 
-  // Restore standard base64 chars and padding
   let b64 = b64part.replace(/-/g, '+').replace(/_/g, '/');
   while (b64.length % 4) b64 += '=';
 
@@ -23,41 +21,81 @@ function decodeTestCode(code) {
   }
 }
 
-// Default assessment URL loaded on startup.
 const DEFAULT_URL = 'https://google.com';
+const API_BASE_URL = 'http://localhost:3001/api';
 
-// Simple incrementing ids for log rows.
 let violationId = 0;
 let urlLogId = 0;
 
 export default function App() {
-  // ── Code-entry gate ─────────────────────────────────────────────────────
   const [started, setStarted] = useState(false);
   const [testCode, setTestCode] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [isValidatingCode, setIsValidatingCode] = useState(false);
 
-  const handleStartWithCode = () => {
+  const handleStartWithCode = async () => {
     const trimmed = testCode.trim();
     if (!trimmed) {
       setCodeError('Please enter a test code.');
       return;
     }
-    const decoded = decodeTestCode(trimmed);
-    if (!decoded) {
-      setCodeError('Invalid code. Please check and try again.');
-      return;
-    }
-    try {
-      new URL(decoded);
-    } catch {
-      setCodeError('Invalid code. Could not extract a valid URL.');
-      return;
-    }
+
     setCodeError('');
-    setUrlInput(decoded);
-    setActiveUrl(decoded);
-    setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: decoded }]);
-    setStarted(true);
+    setIsValidatingCode(true);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/codes/${encodeURIComponent(trimmed)}`);
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) {
+          setUrlInput(data.url);
+          setActiveUrl(data.url);
+          setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: data.url }]);
+          setStarted(true);
+          return;
+        }
+      } else if (res.status === 404) {
+        const legacyDecoded = decodeTestCode(trimmed);
+        if (legacyDecoded) {
+          try {
+            new URL(legacyDecoded);
+            setUrlInput(legacyDecoded);
+            setActiveUrl(legacyDecoded);
+            setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: legacyDecoded }]);
+            setStarted(true);
+            return;
+          } catch {
+          }
+        }
+        setCodeError('Invalid code. Test code not found.');
+        return;
+      } else if (res.status === 410) {
+        const errData = await res.json().catch(() => ({}));
+        setCodeError(errData.error || 'This test code has expired or has been revoked.');
+        return;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setCodeError(errData.error || 'Unable to resolve test code. Please try again.');
+        return;
+      }
+    } catch {
+      const legacyDecoded = decodeTestCode(trimmed);
+      if (legacyDecoded) {
+        try {
+          new URL(legacyDecoded);
+          setUrlInput(legacyDecoded);
+          setActiveUrl(legacyDecoded);
+          setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: legacyDecoded }]);
+          setStarted(true);
+          return;
+        } catch {
+        }
+      }
+      setCodeError('Cannot reach the assessment server. Please ensure the server is running on http://localhost:3001.');
+    } finally {
+      setIsValidatingCode(false);
+    }
   };
 
   const handleStartWithoutCode = () => {
@@ -67,20 +105,18 @@ export default function App() {
   const [urlInput, setUrlInput] = useState(DEFAULT_URL);
   const [activeUrl, setActiveUrl] = useState(DEFAULT_URL);
 
-  // Every URL loaded into the assessment frame, newest first.
   const [urlLogs, setUrlLogs] = useState(() => [
     { id: ++urlLogId, time: new Date().toLocaleTimeString(), url: DEFAULT_URL },
   ]);
 
-  const [cameraStatus, setCameraStatus] = useState('idle'); // idle | running | error
+  const [cameraStatus, setCameraStatus] = useState('idle');
   const [cameraError, setCameraError] = useState('');
-  const [faceDetected, setFaceDetected] = useState(null);   // null=unknown, true, false
+  const [faceDetected, setFaceDetected] = useState(null);
 
   const [focused, setFocused] = useState(true);
   const [fullscreen, setFullscreen] = useState(true);
   const [violations, setViolations] = useState([]);
 
-  // ─── Fairness Score Engine ───
   const { score: fairnessScore, breakdown: fairnessBreakdown, recordViolation } = useFairnessScore();
 
   const addViolation = useCallback((type, message) => {
@@ -90,14 +126,9 @@ export default function App() {
         ...prev,
       ].slice(0, 200)
     );
-    // Feed the violation into the fairness score engine.
     recordViolation(type);
   }, [recordViolation]);
 
-  // addWarning: logs to the violations feed but does NOT affect the fairness score.
-  // Used for object-detection events — YOLO detections are logged here so they are
-  // visible in the audit trail, but scoring is intentionally excluded until the
-  // object-detection fairness weights are properly calibrated.
   const addWarning = useCallback((type, message) => {
     setViolations((prev) =>
       [
@@ -105,11 +136,8 @@ export default function App() {
         ...prev,
       ].slice(0, 200)
     );
-    // ⚠️ Intentionally NOT calling recordViolation — object detection warnings
-    //    are excluded from the fairness score for now.
   }, []);
 
-  // ----- Phase 3: OS window events from the main process -----
   useWindowEvents(
     useCallback(
       (data) => {
@@ -145,7 +173,6 @@ export default function App() {
     )
   );
 
-  // ----- Phase 2: detection status & violation debouncing -----
   const noFaceSince = useRef(null);
   const lastNoFaceViolation = useRef(0);
   const multipleFacesSince = useRef(null);
@@ -158,15 +185,15 @@ export default function App() {
   const currentGazeDirection = useRef('Center');
   const [gazeState, setGazeState] = useState({ isLookingAway: false, direction: 'Center' });
 
-  const obstacleSince = useRef({}); // category -> timestamp
-  const lastSeenObstacle = useRef({}); // category -> timestamp
-  const lastObstacleViolation = useRef({});   // category -> timestamp
+  const obstacleSince = useRef({});
+  const lastSeenObstacle = useRef({});
+  const lastObstacleViolation = useRef({});
   const [obstaclesCount, setObstaclesCount] = useState(0);
 
   const unfocusedSince = useRef(null);
   const lastFocusViolation = useRef(0);
 
-  const notFullscreenSince = useRef(null); // starts in fullscreen
+  const notFullscreenSince = useRef(null);
   const lastNotFullscreenViolation = useRef(0);
 
   const handleFaceStatus = useCallback((isFace) => {
@@ -174,7 +201,6 @@ export default function App() {
   }, []);
 
   const handleDetectionUpdate = useCallback((data) => {
-    // Handle both object format and direct face count
     const faceCount = typeof data === 'object' ? data.faceCount : data;
     const detectedObstacles = typeof data === 'object' ? (data.detectedObstacles || []) : [];
     const isLookingAway = typeof data === 'object' ? !!data.isLookingAway : false;
@@ -188,21 +214,18 @@ export default function App() {
 
     const now = Date.now();
 
-    // -- No face --
     if (faceCount > 0) {
       noFaceSince.current = null;
     } else if (noFaceSince.current == null) {
       noFaceSince.current = now;
     }
 
-    // -- Multiple faces --
     if (faceCount <= 1) {
       multipleFacesSince.current = null;
     } else if (multipleFacesSince.current == null) {
       multipleFacesSince.current = now;
     }
 
-    // -- Eye Gaze / Looking Away --
     if (isLookingAway) {
       lastSeenGazeAway.current = now;
       if (gazeAwaySince.current == null) {
@@ -214,7 +237,6 @@ export default function App() {
       }
     }
 
-    // -- Obstacle Detections --
     const activeCategories = detectedObstacles.map(obj => obj.category);
     
     activeCategories.forEach(cat => {
@@ -224,7 +246,6 @@ export default function App() {
       }
     });
 
-    // Clean up objects that haven't been seen for 800ms
     Object.keys(obstacleSince.current).forEach(cat => {
       const lastSeen = lastSeenObstacle.current[cat] || 0;
       if (now - lastSeen > 800) {
@@ -251,7 +272,6 @@ export default function App() {
     const interval = setInterval(() => {
       const now = Date.now();
 
-      // 1) No Face (3+ seconds, cooldown 5 seconds)
       if (
         noFaceSince.current &&
         now - noFaceSince.current > 3000 &&
@@ -261,7 +281,6 @@ export default function App() {
         addViolation('face', 'No face detected for 3+ seconds');
       }
 
-      // 2) Multiple People (3+ seconds, cooldown 5 seconds)
       if (
         multipleFacesSince.current &&
         now - multipleFacesSince.current > 3000 &&
@@ -272,7 +291,6 @@ export default function App() {
         addViolation('multiple-faces', `Multiple people detected (${count} faces) for 3+ seconds`);
       }
 
-      // 3) Eye Gaze / Looking Away (1.5+ seconds, cooldown 5 seconds)
       if (
         gazeAwaySince.current &&
         now - gazeAwaySince.current > 1500 &&
@@ -283,18 +301,13 @@ export default function App() {
         addViolation('gaze', `Looking away from screen (${dir})`);
       }
 
-      // 4) Obstacle / Object Detections
-      //    Dwell threshold : 1 000 ms  — object must be present for 1 second
-      //    before logging a violation.
-      //    Cooldown        : 5 000 ms  — at most one violation every 5 s per category.
-      //    Scoring         : addViolation() deducts from the fairness score.
       Object.keys(obstacleSince.current).forEach((cat) => {
         const detectedAt = obstacleSince.current[cat];
         const lastViolatedAt = lastObstacleViolation.current[cat] || 0;
 
         if (
           detectedAt &&
-          now - detectedAt > 1000 &&   // ← 1-second dwell before violation
+          now - detectedAt > 1000 &&
           now - lastViolatedAt > 5000
         ) {
           lastObstacleViolation.current[cat] = now;
@@ -303,7 +316,6 @@ export default function App() {
         }
       });
 
-      // 5) Tab still switched (every 2 seconds while unfocused)
       if (
         unfocusedSince.current &&
         now - unfocusedSince.current > 2000 &&
@@ -314,7 +326,6 @@ export default function App() {
         addViolation('focus', `Window still unfocused (${secs}s)`);
       }
 
-      // 6) Not in fullscreen (1+ second, cooldown 5 seconds)
       if (
         notFullscreenSince.current &&
         now - notFullscreenSince.current > 1000 &&
@@ -336,7 +347,6 @@ export default function App() {
   const lastLoggedUrl = useRef('');
 
   const logUrl = useCallback((url) => {
-    // Skip consecutive duplicate URLs (redirects, re-fires)
     if (url === lastLoggedUrl.current) return;
     lastLoggedUrl.current = url;
     setUrlLogs((prev) =>
@@ -352,10 +362,8 @@ export default function App() {
     if (!next) return;
     if (!/^https?:\/\//i.test(next)) next = 'https://' + next;
     setActiveUrl(next);
-    // Don't logUrl here — the webview's did-navigate event will log it
   };
 
-  // ── Code-entry landing screen ──────────────────────────────────────────
   if (!started) {
     return (
       <div className="code-entry-screen">
@@ -381,10 +389,15 @@ export default function App() {
               spellCheck={false}
             />
             {codeError && <p className="code-entry-error">{codeError}</p>}
-            <button className="code-entry-btn" onClick={handleStartWithCode}>
-              Start Test
+            <button 
+              className="code-entry-btn" 
+              onClick={handleStartWithCode}
+              disabled={isValidatingCode}
+              style={{ opacity: isValidatingCode ? 0.7 : 1, cursor: isValidatingCode ? 'wait' : 'pointer' }}
+            >
+              {isValidatingCode ? 'Verifying...' : 'Start Test'}
             </button>
-            <button className="code-entry-skip" onClick={handleStartWithoutCode}>
+            <button className="code-entry-skip" onClick={handleStartWithoutCode} disabled={isValidatingCode}>
               Skip — enter URL manually
             </button>
           </div>
@@ -422,8 +435,8 @@ export default function App() {
         <SiteFrame
           url={activeUrl}
           onNavigate={(navUrl) => {
-            setUrlInput(navUrl);   // update the URL bar to reflect the current page
-            logUrl(navUrl);        // log every in-webview navigation
+            setUrlInput(navUrl);
+            logUrl(navUrl);
           }}
         />
         <aside className="sidebar">
@@ -450,4 +463,3 @@ export default function App() {
     </div>
   );
 }
-
