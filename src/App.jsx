@@ -25,6 +25,7 @@ function decodeTestCode(code) {
 
 // Default assessment URL loaded on startup.
 const DEFAULT_URL = 'https://google.com';
+const API_BASE_URL = 'http://localhost:3001/api';
 
 // Simple incrementing ids for log rows.
 let violationId = 0;
@@ -35,29 +36,76 @@ export default function App() {
   const [started, setStarted] = useState(false);
   const [testCode, setTestCode] = useState('');
   const [codeError, setCodeError] = useState('');
+  const [isValidatingCode, setIsValidatingCode] = useState(false);
 
-  const handleStartWithCode = () => {
+  const handleStartWithCode = async () => {
     const trimmed = testCode.trim();
     if (!trimmed) {
       setCodeError('Please enter a test code.');
       return;
     }
-    const decoded = decodeTestCode(trimmed);
-    if (!decoded) {
-      setCodeError('Invalid code. Please check and try again.');
-      return;
-    }
-    try {
-      new URL(decoded);
-    } catch {
-      setCodeError('Invalid code. Could not extract a valid URL.');
-      return;
-    }
+
     setCodeError('');
-    setUrlInput(decoded);
-    setActiveUrl(decoded);
-    setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: decoded }]);
-    setStarted(true);
+    setIsValidatingCode(true);
+
+    try {
+      // 1. First attempt to resolve via backend API
+      const res = await fetch(`${API_BASE_URL}/codes/${encodeURIComponent(trimmed)}`);
+      
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) {
+          setUrlInput(data.url);
+          setActiveUrl(data.url);
+          setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: data.url }]);
+          setStarted(true);
+          return;
+        }
+      } else if (res.status === 404) {
+        // Fallback check for legacy client-side encoded code before throwing
+        const legacyDecoded = decodeTestCode(trimmed);
+        if (legacyDecoded) {
+          try {
+            new URL(legacyDecoded);
+            setUrlInput(legacyDecoded);
+            setActiveUrl(legacyDecoded);
+            setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: legacyDecoded }]);
+            setStarted(true);
+            return;
+          } catch {
+            // invalid URL in legacy payload
+          }
+        }
+        setCodeError('Invalid code. Test code not found.');
+        return;
+      } else if (res.status === 410) {
+        const errData = await res.json().catch(() => ({}));
+        setCodeError(errData.error || 'This test code has expired or has been revoked.');
+        return;
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setCodeError(errData.error || 'Unable to resolve test code. Please try again.');
+        return;
+      }
+    } catch {
+      // Backend is unreachable; check if legacy code format works offline
+      const legacyDecoded = decodeTestCode(trimmed);
+      if (legacyDecoded) {
+        try {
+          new URL(legacyDecoded);
+          setUrlInput(legacyDecoded);
+          setActiveUrl(legacyDecoded);
+          setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: legacyDecoded }]);
+          setStarted(true);
+          return;
+        } catch {
+          // Ignore
+        }
+      }
+      setCodeError('Cannot reach the assessment server. Please ensure the server is running on http://localhost:3001.');
+    } finally {
+      setIsValidatingCode(false);
+    }
   };
 
   const handleStartWithoutCode = () => {
@@ -381,10 +429,15 @@ export default function App() {
               spellCheck={false}
             />
             {codeError && <p className="code-entry-error">{codeError}</p>}
-            <button className="code-entry-btn" onClick={handleStartWithCode}>
-              Start Test
+            <button 
+              className="code-entry-btn" 
+              onClick={handleStartWithCode}
+              disabled={isValidatingCode}
+              style={{ opacity: isValidatingCode ? 0.7 : 1, cursor: isValidatingCode ? 'wait' : 'pointer' }}
+            >
+              {isValidatingCode ? 'Verifying...' : 'Start Test'}
             </button>
-            <button className="code-entry-skip" onClick={handleStartWithoutCode}>
+            <button className="code-entry-skip" onClick={handleStartWithoutCode} disabled={isValidatingCode}>
               Skip — enter URL manually
             </button>
           </div>

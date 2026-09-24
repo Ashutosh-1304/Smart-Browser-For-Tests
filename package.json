@@ -6,14 +6,21 @@
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
+    "dev:server": "node server/index.js",
     "dev:vite": "vite",
-    "dev:electron": "wait-on tcp:127.0.0.1:5173 && electron .",
-    "dev": "concurrently -k -n VITE,ELECTRON -c cyan,green \"npm:dev:vite\" \"npm:dev:electron\"",
+    "dev:electron": "wait-on tcp:127.0.0.1:5173 tcp:127.0.0.1:3001 && electron .",
+    "dev": "concurrently -k -n SERVER,VITE,ELECTRON -c magenta,cyan,green \"npm:dev:server\" \"npm:dev:vite\" \"npm:dev:electron\"",
+    "test:server": "DATABASE_PATH=:memory: node --test server/tests/api.test.js",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.20",
+    "better-sqlite3": "^13.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.3",
+    "express": "^5.2.1",
+    "knex": "^3.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
