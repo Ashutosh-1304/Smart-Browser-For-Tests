@@ -4,7 +4,6 @@ import path from 'path';
 import { config } from './config.js';
 import knexConfig from './knexfile.js';
 
-// Ensure data directory exists if using local SQLite file
 if (config.databasePath && !config.databasePath.startsWith(':memory:')) {
   const dir = path.dirname(config.databasePath);
   if (!fs.existsSync(dir)) {
@@ -21,9 +20,6 @@ if (config.databasePath) {
 
 export const db = knex(activeKnexConfig);
 
-/**
- * Ensure database schema exists.
- */
 export async function initDb() {
   const exists = await db.schema.hasTable('codes');
   if (!exists) {

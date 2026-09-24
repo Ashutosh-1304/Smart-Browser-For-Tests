@@ -6,10 +6,6 @@ import { generateUniqueCode } from '../utils/codeGenerator.js';
 
 export const codesRouter = express.Router();
 
-/**
- * POST /api/codes
- * Create a new test code for a given assessment URL.
- */
 codesRouter.post('/', async (req, res, next) => {
   try {
     const { url, expires_at, expiresAt, created_by, createdBy } = req.body || {};
@@ -23,7 +19,6 @@ codesRouter.post('/', async (req, res, next) => {
     const finalExpiresAt = expiresAt || expires_at || null;
     const finalCreatedBy = createdBy || created_by || null;
 
-    // Optional expiration validation
     if (finalExpiresAt) {
       const expDate = new Date(finalExpiresAt);
       if (isNaN(expDate.getTime())) {
@@ -61,10 +56,6 @@ codesRouter.post('/', async (req, res, next) => {
   }
 });
 
-/**
- * GET /api/codes/:code
- * Resolves a test code to its target URL. Increments hit_count.
- */
 codesRouter.get('/:code', async (req, res, next) => {
   try {
     const rawCode = req.params.code;
@@ -80,7 +71,6 @@ codesRouter.get('/:code', async (req, res, next) => {
       return res.status(404).json({ error: 'Test code not found.' });
     }
 
-    // Check revocation
     if (record.status === 'revoked') {
       return res.status(410).json({
         error: 'This test code has been revoked.',
@@ -88,7 +78,6 @@ codesRouter.get('/:code', async (req, res, next) => {
       });
     }
 
-    // Check expiration
     if (record.status === 'expired' || (record.expires_at && new Date(record.expires_at) <= new Date())) {
       if (record.status !== 'expired') {
         await db('codes').where({ id: record.id }).update({ status: 'expired' });
@@ -99,7 +88,6 @@ codesRouter.get('/:code', async (req, res, next) => {
       });
     }
 
-    // Increment hit_count
     await db('codes').where({ id: record.id }).increment('hit_count', 1);
 
     return res.json({
@@ -112,10 +100,6 @@ codesRouter.get('/:code', async (req, res, next) => {
   }
 });
 
-/**
- * GET /api/codes
- * Lists recent codes (sanitized for website history / teacher view).
- */
 codesRouter.get('/', async (req, res, next) => {
   try {
     const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 100);
@@ -144,10 +128,6 @@ codesRouter.get('/', async (req, res, next) => {
   }
 });
 
-/**
- * POST /api/codes/:code/revoke
- * Mark a code as revoked.
- */
 codesRouter.post('/:code/revoke', async (req, res, next) => {
   try {
     const rawCode = req.params.code;

@@ -1,15 +1,6 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   Smart Browser — Test Code Generator  |  Client Logic
-   ─────────────────────────────────────────────────────────────────────────
-   Now connected to the backend API + persistent SQLite/PostgreSQL database.
-   Codes are 6-character unambiguous alphanumeric tokens generated server-side.
-   Target URLs are validated and stored safely on the server.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
 const API_BASE_URL = window.API_BASE_URL || 'http://localhost:3001/api';
 const STORAGE_CACHE_KEY = 'smartbrowser_cached_codes';
 
-// ── Storage Fallback Helpers ────────────────────────────────────────────── //
 function loadCachedHistory() {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_CACHE_KEY) || '[]');
@@ -22,11 +13,9 @@ function saveCachedHistory(list) {
   try {
     localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(list));
   } catch {
-    // Ignore storage quota errors
   }
 }
 
-// ── UI Logic ────────────────────────────────────────────────────────────── //
 let lastGeneratedCode = '';
 
 async function generateCode() {
@@ -35,14 +24,12 @@ async function generateCode() {
   const generateBtn = document.getElementById('generateBtn');
   const url = input.value.trim();
 
-  // Validate presence
   if (!url) {
     errorText.textContent = 'Please enter a test link.';
     input.focus();
     return;
   }
 
-  // Pre-validate URL format client-side
   const fullUrl = url.match(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//) ? url : 'https://' + url;
   try {
     const parsed = new URL(fullUrl);
@@ -83,7 +70,6 @@ async function generateCode() {
 
     lastGeneratedCode = data.code;
 
-    // Show result
     document.getElementById('codeText').textContent = data.code;
     document.getElementById('resultLink').textContent = data.url;
     document.getElementById('resultLink').title = data.url;
@@ -95,7 +81,6 @@ async function generateCode() {
     document.getElementById('cardSubtitle').textContent =
       'Your test code is ready. Share it with your students.';
 
-    // Refresh history from API
     await renderHistory();
   } catch (err) {
     errorText.textContent =
@@ -116,7 +101,6 @@ function copyCode() {
       showToast('Code copied to clipboard!');
     })
     .catch(() => {
-      // Fallback
       const ta = document.createElement('textarea');
       ta.value = code;
       document.body.appendChild(ta);
@@ -138,7 +122,6 @@ function resetForm() {
   document.getElementById('linkInput').focus();
 }
 
-// ── Toast ────────────────────────────────────────────────────────────────── //
 function showToast(msg) {
   let toast = document.querySelector('.toast');
   if (!toast) {
@@ -151,7 +134,6 @@ function showToast(msg) {
   setTimeout(() => toast.classList.remove('show'), 2200);
 }
 
-// ── History table ────────────────────────────────────────────────────────── //
 async function renderHistory() {
   const container = document.getElementById('historyTable');
 
@@ -201,7 +183,6 @@ async function renderHistory() {
   container.innerHTML = html;
 }
 
-// ── Init ─────────────────────────────────────────────────────────────────── //
 document.addEventListener('DOMContentLoaded', () => {
   renderHistory();
   document.getElementById('linkInput').focus();

@@ -1,7 +1,3 @@
-/**
- * @param { import("knex").Knex } knex
- * @returns { Promise<void> }
- */
 export async function up(knex) {
   const exists = await knex.schema.hasTable('codes');
   if (!exists) {
@@ -18,10 +14,6 @@ export async function up(knex) {
   }
 }
 
-/**
- * @param { import("knex").Knex } knex
- * @returns { Promise<void> }
- */
 export async function down(knex) {
   await knex.schema.dropTableIfExists('codes');
 }

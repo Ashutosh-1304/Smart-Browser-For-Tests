@@ -9,7 +9,6 @@ let server;
 let baseUrl;
 
 test.before(async () => {
-  // Use in-memory SQLite for testing
   await initDb();
   await new Promise((resolve) => {
     server = app.listen(0, () => {
@@ -65,7 +64,6 @@ test('Issue #10: Code format matches ^[A-Z2-9]{6}$ and excludes ambiguous charac
 });
 
 test('Issue #10: Uniqueness collision retry succeeds on collision', async () => {
-  // Mock a DB where first call finds an existing code, and second call finds none
   let calls = 0;
   const mockDb = () => ({
     where: () => ({
@@ -82,7 +80,6 @@ test('Issue #10: Uniqueness collision retry succeeds on collision', async () => 
 });
 
 test('Issue #10: Collision retry throws when max retries exceeded', async () => {
-  // Mock a DB that always returns a colliding record
   const mockCollidingDb = () => ({
     where: () => ({
       first: async () => ({ id: 'always-collision' }),
@@ -134,7 +131,6 @@ test('API: POST /api/codes rejects invalid URLs with 400', async () => {
 });
 
 test('API: GET /api/codes/:code resolves code and increments hit count', async () => {
-  // Create code
   const createRes = await fetch(`${baseUrl}/api/codes`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -143,7 +139,6 @@ test('API: GET /api/codes/:code resolves code and increments hit count', async (
   const created = await createRes.json();
   const testCode = created.code;
 
-  // Resolve code with case-insensitivity (lowercase)
   const resolveRes = await fetch(`${baseUrl}/api/codes/${testCode.toLowerCase()}`);
   assert.equal(resolveRes.status, 200);
   const resolved = await resolveRes.json();
@@ -151,16 +146,13 @@ test('API: GET /api/codes/:code resolves code and increments hit count', async (
   assert.equal(resolved.url, 'https://assessment.org/exam1');
   assert.equal(resolved.status, 'active');
 
-  // Resolve code with case-insensitivity (mixed case)
   const mixedCase = testCode[0].toLowerCase() + testCode.slice(1).toUpperCase();
   const mixedRes = await fetch(`${baseUrl}/api/codes/${mixedCase}`);
   assert.equal(mixedRes.status, 200);
 
-  // Internal fields should not be leaked
   assert.equal(resolved.id, undefined);
   assert.equal(resolved.created_by, undefined);
 
-  // Check hit count in DB (2 resolutions performed)
   const row = await db('codes').where({ code: testCode }).first();
   assert.equal(row.hit_count, 2);
 });
@@ -181,7 +173,6 @@ test('API: POST /api/codes/:code/revoke and 410 on resolution', async () => {
   const created = await createRes.json();
   const testCode = created.code;
 
-  // Revoke code
   const revokeRes = await fetch(`${baseUrl}/api/codes/${testCode}/revoke`, {
     method: 'POST',
   });
@@ -189,7 +180,6 @@ test('API: POST /api/codes/:code/revoke and 410 on resolution', async () => {
   const revokeData = await revokeRes.json();
   assert.equal(revokeData.status, 'revoked');
 
-  // Attempt resolving revoked code
   const resolveRes = await fetch(`${baseUrl}/api/codes/${testCode}`);
   assert.equal(resolveRes.status, 410);
   const resolveData = await resolveRes.json();
