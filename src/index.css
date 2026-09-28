@@ -636,3 +636,156 @@ button:hover {
 .code-entry-skip:hover {
   color: var(--text);
 }
+
+/* ---------- Integrity Stream Status Pill ---------- */
+.integrity-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+}
+.integrity-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #64748b;
+}
+.status-connected .integrity-status-dot {
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+}
+.status-connecting .integrity-status-dot {
+  background: #f59e0b;
+  animation: pulse 1.2s infinite;
+}
+.status-disconnected .integrity-status-dot {
+  background: #ef4444;
+}
+
+/* ---------- Invigilator Message Toast ---------- */
+.invigilator-toast {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 20px;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 15px rgba(245, 158, 11, 0.25);
+  max-width: 580px;
+  width: 90%;
+  animation: slideDown 0.3s ease-out;
+}
+.invigilator-toast .toast-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #f8fafc;
+}
+.invigilator-toast .toast-icon {
+  font-size: 1.4rem;
+}
+.invigilator-toast strong {
+  display: block;
+  font-size: 0.85rem;
+  color: #fbbf24;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+.invigilator-toast p {
+  font-size: 0.92rem;
+  color: #e2e8f0;
+  margin: 0;
+}
+.toast-dismiss-btn {
+  padding: 6px 14px;
+  background: #f59e0b;
+  border: none;
+  border-radius: 6px;
+  color: #0f172a;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.toast-dismiss-btn:hover {
+  background: #fbbf24;
+}
+
+/* ---------- Fullscreen Lock Screen Overlay ---------- */
+.fullscreen-lock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: rgba(15, 23, 42, 0.98);
+  backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: fadeIn 0.25s ease-out;
+}
+.lock-card {
+  max-width: 480px;
+  width: 100%;
+  background: #1e293b;
+  border: 1.5px solid #ef4444;
+  border-radius: 16px;
+  padding: 36px 28px;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(239, 68, 68, 0.25);
+}
+.lock-card .lock-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+.lock-card h2 {
+  font-size: 1.6rem;
+  color: #f87171;
+  margin-bottom: 10px;
+  font-weight: 700;
+}
+.lock-card .lock-reason {
+  font-size: 0.98rem;
+  color: #cbd5e1;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+.lock-card .lock-meta {
+  display: flex;
+  justify-content: space-around;
+  padding: 10px;
+  background: #0f172a;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-bottom: 18px;
+  border: 1px solid #334155;
+}
+.lock-card .lock-notice {
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translate(-50%, -20px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

@@ -14,4 +14,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   // Ask the main process to enter/exit real OS fullscreen.
   toggleFullscreen: (enable) => ipcRenderer.invoke('toggle-fullscreen', enable),
+  // Retrieve OS hostname, platform, username, and local IP for Veyon bridge mapping
+  getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
 });

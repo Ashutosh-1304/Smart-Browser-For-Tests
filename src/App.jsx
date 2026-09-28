@@ -4,6 +4,7 @@ import FaceMonitor from './components/FaceMonitor.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import { useWindowEvents } from './hooks/useWindowEvents.js';
 import { useFairnessScore } from './hooks/useFairnessScore.js';
+import { reportingAgent } from './services/reportingAgent.js';
 
 function decodeTestCode(code) {
   const sep = code.indexOf('-');
@@ -30,8 +31,35 @@ let urlLogId = 0;
 export default function App() {
   const [started, setStarted] = useState(false);
   const [testCode, setTestCode] = useState('');
+  const [candidateName, setCandidateName] = useState('');
   const [codeError, setCodeError] = useState('');
   const [isValidatingCode, setIsValidatingCode] = useState(false);
+
+  const [integrityStatus, setIntegrityStatus] = useState('disconnected');
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockMessage, setLockMessage] = useState('');
+  const [invigilatorMessage, setInvigilatorMessage] = useState(null);
+
+  const startReporting = (code, targetUrl) => {
+    reportingAgent.callbacks.onStatusChange = (status) => setIntegrityStatus(status);
+    reportingAgent.callbacks.onLock = (msg) => {
+      setIsLocked(true);
+      setLockMessage(msg);
+    };
+    reportingAgent.callbacks.onUnlock = () => {
+      setIsLocked(false);
+      setLockMessage('');
+    };
+    reportingAgent.callbacks.onMessage = (msg) => {
+      setInvigilatorMessage(msg);
+    };
+
+    reportingAgent.start({
+      studentName: candidateName.trim() || undefined,
+      testCode: code || 'DIRECT-ACCESS',
+      url: targetUrl,
+    });
+  };
 
   const handleStartWithCode = async () => {
     const trimmed = testCode.trim();
@@ -53,6 +81,7 @@ export default function App() {
           setActiveUrl(data.url);
           setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: data.url }]);
           setStarted(true);
+          startReporting(trimmed, data.url);
           return;
         }
       } else if (res.status === 404) {
@@ -64,6 +93,7 @@ export default function App() {
             setActiveUrl(legacyDecoded);
             setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: legacyDecoded }]);
             setStarted(true);
+            startReporting(trimmed, legacyDecoded);
             return;
           } catch {
           }
@@ -88,6 +118,7 @@ export default function App() {
           setActiveUrl(legacyDecoded);
           setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: legacyDecoded }]);
           setStarted(true);
+          startReporting(trimmed, legacyDecoded);
           return;
         } catch {
         }
@@ -100,6 +131,7 @@ export default function App() {
 
   const handleStartWithoutCode = () => {
     setStarted(true);
+    startReporting('DIRECT', DEFAULT_URL);
   };
 
   const [urlInput, setUrlInput] = useState(DEFAULT_URL);
@@ -120,13 +152,16 @@ export default function App() {
   const { score: fairnessScore, breakdown: fairnessBreakdown, recordViolation } = useFairnessScore();
 
   const addViolation = useCallback((type, message) => {
+    const vId = ++violationId;
+    const timeStr = new Date().toLocaleTimeString();
     setViolations((prev) =>
       [
-        { id: ++violationId, time: new Date().toLocaleTimeString(), type, message },
+        { id: vId, time: timeStr, type, message },
         ...prev,
       ].slice(0, 200)
     );
     recordViolation(type);
+    reportingAgent.sendViolation({ id: vId, time: timeStr, type, message });
   }, [recordViolation]);
 
   const addWarning = useCallback((type, message) => {
@@ -195,6 +230,19 @@ export default function App() {
 
   const notFullscreenSince = useRef(null);
   const lastNotFullscreenViolation = useRef(0);
+
+  useEffect(() => {
+    if (!started) return;
+    reportingAgent.sendTelemetry({
+      fairnessScore,
+      fairnessBreakdown,
+      faceDetected,
+      gazeState,
+      obstaclesCount,
+      focused,
+      fullscreen,
+    });
+  }, [started, fairnessScore, fairnessBreakdown, faceDetected, gazeState, obstaclesCount, focused, fullscreen]);
 
   const handleFaceStatus = useCallback((isFace) => {
     setFaceDetected(isFace ? 1 : 0);
@@ -377,6 +425,17 @@ export default function App() {
           <p className="code-entry-subtitle">Secure Assessment Platform</p>
 
           <div className="code-entry-form">
+            <label className="code-entry-label">Candidate Name / Roll No.</label>
+            <input
+              className="code-entry-input"
+              type="text"
+              value={candidateName}
+              onChange={(e) => setCandidateName(e.target.value)}
+              placeholder="e.g. John Doe / Roll 42 (optional)"
+              spellCheck={false}
+              style={{ marginBottom: '12px' }}
+            />
+
             <label className="code-entry-label">Enter Test Code</label>
             <input
               className="code-entry-input"
@@ -422,6 +481,12 @@ export default function App() {
           <button onClick={loadUrl}>Load</button>
         </div>
         <div className="fs-controls">
+          <div className={`integrity-status-pill status-${integrityStatus}`} title={`Central Integrity Server: ${integrityStatus}`}>
+            <span className="integrity-status-dot" />
+            <span className="integrity-status-label">
+              {integrityStatus === 'connected' ? 'Monitored' : integrityStatus === 'connecting' ? 'Connecting...' : 'Offline'}
+            </span>
+          </div>
           <button onClick={() => window.electronAPI?.toggleFullscreen(true)}>
             Enter Fullscreen
           </button>
@@ -430,6 +495,36 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {invigilatorMessage && (
+        <div className="invigilator-toast">
+          <div className="toast-content">
+            <span className="toast-icon">⚠️</span>
+            <div>
+              <strong>Invigilator Warning:</strong>
+              <p>{invigilatorMessage}</p>
+            </div>
+          </div>
+          <button className="toast-dismiss-btn" onClick={() => setInvigilatorMessage(null)}>
+            Acknowledge
+          </button>
+        </div>
+      )}
+
+      {isLocked && (
+        <div className="fullscreen-lock-overlay">
+          <div className="lock-card">
+            <div className="lock-icon">🔒</div>
+            <h2>Assessment Session Locked</h2>
+            <p className="lock-reason">{lockMessage || 'Your assessment session has been locked by the invigilator.'}</p>
+            <div className="lock-meta">
+              <span>Security Event: Station Locked</span>
+              <span>Central Integrity Active</span>
+            </div>
+            <p className="lock-notice">Please wait for the test administrator to unlock your station.</p>
+          </div>
+        </div>
+      )}
 
       <div className="body">
         <SiteFrame
