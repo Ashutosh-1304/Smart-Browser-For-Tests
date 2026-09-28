@@ -10,7 +10,7 @@
     "dev:vite": "vite",
     "dev:electron": "wait-on tcp:127.0.0.1:5173 tcp:127.0.0.1:3001 && electron .",
     "dev": "concurrently -k -n SERVER,VITE,ELECTRON -c magenta,cyan,green \"npm:dev:server\" \"npm:dev:vite\" \"npm:dev:electron\"",
-    "test:server": "DATABASE_PATH=:memory: node --test server/tests/api.test.js",
+    "test:server": "DATABASE_PATH=:memory: node --test server/tests/api.test.js server/tests/integrity.test.js",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -22,7 +22,8 @@
     "express": "^5.2.1",
     "knex": "^3.3.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",

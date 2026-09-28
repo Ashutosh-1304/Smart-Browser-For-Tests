@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Smart Browser Invigilator Sidecar Console — Live classroom proctoring with Veyon Action Bridge" />
+  <title>Smart Browser — Invigilator Sidecar Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="dashboard.css" />
+</head>
+<body>
+  <div class="dashboard-layout">
+    <!-- Top Navigation Header -->
+    <header class="console-header">
+      <div class="header-left">
+        <a href="index.html" class="brand-link" title="Back to Portal">
+          <div class="logo-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="brand-title">Smart Browser <span class="badge-sidecar">Approach A</span></div>
+            <div class="brand-subtitle">Invigilator Sidecar & Veyon Bridge</div>
+          </div>
+        </a>
+      </div>
+
+      <!-- Quick Metrics Summary Bar -->
+      <div class="metrics-bar">
+        <div class="metric-item">
+          <span class="metric-label">Active Students</span>
+          <span class="metric-val" id="metricActiveCount">0</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Flagged (<70)</span>
+          <span class="metric-val warning" id="metricFlaggedCount">0</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Locked</span>
+          <span class="metric-val danger" id="metricLockedCount">0</span>
+        </div>
+        <div class="metric-item">
+          <span class="metric-label">Avg Fairness</span>
+          <span class="metric-val" id="metricAvgScore">100%</span>
+        </div>
+      </div>
+
+      <!-- Status & Utility Controls -->
+      <div class="header-right">
+        <div class="status-indicator" id="wsStatusIndicator">
+          <span class="pulse-dot"></span>
+          <span id="wsStatusText">Connecting...</span>
+        </div>
+        <div class="status-indicator bridge-indicator" id="bridgeIndicator" title="Veyon Bridge Status">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+            <line x1="6" y1="6" x2="6.01" y2="6"/>
+            <line x1="6" y1="18" x2="6.01" y2="18"/>
+          </svg>
+          <span id="bridgeStatusText">Bridge: LAN Mode</span>
+        </div>
+        <button class="btn btn-sm btn-outline" id="btnOpenAudit">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="4 17 10 11 4 5"/>
+            <line x1="12" y1="19" x2="20" y2="19"/>
+          </svg>
+          CLI Logs (<span id="auditCount">0</span>)
+        </button>
+      </div>
+    </header>
+
+    <!-- Sub-header Toolbar -->
+    <div class="console-toolbar">
+      <div class="toolbar-left">
+        <div class="search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Search candidate, student ID, host or test code..." />
+        </div>
+        <div class="filter-group">
+          <button class="filter-chip active" data-filter="all">All (<span id="filterAllCount">0</span>)</button>
+          <button class="filter-chip" data-filter="online">Online (<span id="filterOnlineCount">0</span>)</button>
+          <button class="filter-chip" data-filter="flagged">Flagged (<span id="filterFlaggedCount">0</span>)</button>
+          <button class="filter-chip" data-filter="locked">Locked (<span id="filterLockedCount">0</span>)</button>
+        </div>
+      </div>
+
+      <div class="toolbar-right">
+        <button class="btn btn-secondary" id="btnAutoRules">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          Auto-Rules
+        </button>
+        <button class="btn btn-secondary" id="btnSimulateStudent" title="Quickly spawn a test student session to test live streaming">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          + Test Student
+        </button>
+        <button class="btn btn-primary" id="btnBroadcast">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          Broadcast Alert
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Live Candidate Grid -->
+    <main class="console-body">
+      <div class="student-grid" id="studentGrid">
+        <!-- Rendered dynamically -->
+      </div>
+      <div class="empty-state" id="emptyState" style="display: none;">
+        <div class="empty-icon">👥</div>
+        <h3>No Candidates Connected</h3>
+        <p>Candidates will appear here automatically when they open the Smart Browser app.</p>
+        <div class="empty-actions">
+          <button class="btn btn-primary" id="btnEmptySimulate">+ Spawn Simulated Candidate for Testing</button>
+        </div>
+      </div>
+    </main>
+
+    <!-- CLI Audit Drawer -->
+    <aside class="audit-drawer" id="auditDrawer">
+      <div class="drawer-header">
+        <div class="drawer-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="4 17 10 11 4 5"/>
+            <line x1="12" y1="19" x2="20" y2="19"/>
+          </svg>
+          Veyon-CLI Action Execution Log
+        </div>
+        <button class="btn-close" id="btnCloseAudit">&times;</button>
+      </div>
+      <div class="drawer-meta" id="drawerMeta">
+        <span>Target: Local / Managed LAN</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="chkMockMode" checked />
+          <span class="toggle-slider"></span>
+          <span class="toggle-text">Simulation Mode</span>
+        </label>
+      </div>
+      <div class="terminal-log" id="terminalLog">
+        <div class="log-line info">[System] Veyon action bridge initialized. Ready to execute commands.</div>
+      </div>
+    </aside>
+
+    <!-- Modal: Auto Rules Configuration -->
+    <div class="modal-overlay" id="modalAutoRules">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>⚡ Automated Veyon Action Rules</h3>
+          <button class="btn-close" id="btnCloseRules">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-desc">Configure automated invigilator reactions triggered when candidate integrity metrics degrade.</p>
+          
+          <div class="form-group row">
+            <label>Master Auto-Rules Switch</label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="ruleEnabled" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <div class="label-with-val">
+              <label>Auto-Lock Screen Threshold (Fairness Score &lt; <span id="valLock">50</span>)</label>
+            </div>
+            <input type="range" id="rangeLock" min="20" max="80" value="50" class="slider" />
+            <span class="help-text">Automatically issues <code>veyon-cli feature lock</code> when a candidate's score drops below this number.</span>
+          </div>
+
+          <div class="form-group">
+            <div class="label-with-val">
+              <label>Auto-Warning Threshold (Fairness Score &lt; <span id="valWarn">70</span>)</label>
+            </div>
+            <input type="range" id="rangeWarn" min="40" max="90" value="70" class="slider" />
+            <span class="help-text">Sends an alert message to the student computer via Veyon/WebSocket when their score begins slipping.</span>
+          </div>
+
+          <div class="form-group">
+            <div class="label-with-val">
+              <label>Action Cooldown: <span id="valCooldown">30</span> seconds</label>
+            </div>
+            <input type="range" id="rangeCooldown" min="10" max="120" step="5" value="30" class="slider" />
+            <span class="help-text">Minimum time between automated actions for the same candidate to prevent action flooding.</span>
+          </div>
+
+          <div class="form-group row">
+            <div>
+              <label>Auto-Screenshot on Critical Violation</label>
+              <div class="help-text">Takes snapshot when mobile phone or multiple persons are detected.</div>
+            </div>
+            <label class="toggle-switch">
+              <input type="checkbox" id="ruleScreenshot" checked />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="btnCancelRules">Cancel</button>
+          <button class="btn btn-primary" id="btnSaveRules">Save Rules</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Student Inspector -->
+    <div class="modal-overlay" id="modalInspector">
+      <div class="modal-card modal-lg">
+        <div class="modal-header">
+          <div class="student-inspector-header">
+            <div class="inspector-avatar" id="inspectAvatar">A</div>
+            <div>
+              <h3 id="inspectName">Student Name</h3>
+              <div class="inspector-meta" id="inspectMeta">ID: STU-101 • Host: lab-pc-01 • Test: CS-FINAL</div>
+            </div>
+          </div>
+          <button class="btn-close" id="btnCloseInspector">&times;</button>
+        </div>
+        <div class="modal-body inspector-grid">
+          <div class="inspector-left">
+            <div class="card-section">
+              <div class="section-title">Veyon LAN Mapping</div>
+              <div class="mapping-row">
+                <input type="text" id="inspectHostInput" class="input-sm" placeholder="Hostname or IP..." />
+                <button class="btn btn-sm btn-outline" id="btnSaveMapping">Update Host</button>
+              </div>
+            </div>
+
+            <div class="card-section">
+              <div class="section-title">Manual Actions</div>
+              <div class="action-btn-row">
+                <button class="btn btn-sm btn-danger" id="btnInspectLock">🔒 Lock Screen</button>
+                <button class="btn btn-sm btn-success" id="btnInspectUnlock">🔓 Unlock</button>
+                <button class="btn btn-sm btn-secondary" id="btnInspectMsg">💬 Message</button>
+                <button class="btn btn-sm btn-secondary" id="btnInspectShot">📸 Screenshot</button>
+              </div>
+            </div>
+
+            <div class="card-section">
+              <div class="section-title">Live Score Breakdown</div>
+              <div class="breakdown-list" id="inspectBreakdown">
+                <!-- dynamic -->
+              </div>
+            </div>
+          </div>
+
+          <div class="inspector-right">
+            <div class="section-title">Violation History Timeline</div>
+            <div class="violation-timeline" id="inspectTimeline">
+              <!-- dynamic -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Send Message -->
+    <div class="modal-overlay" id="modalMessage">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 id="msgModalTitle">Send Warning Message</h3>
+          <button class="btn-close" id="btnCloseMessage">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="preset-chips">
+            <button class="chip" data-msg="Please keep your eyes focused on the assessment screen.">👀 Focus on Screen</button>
+            <button class="chip" data-msg="Unauthorized mobile phone or device detected. Put it away.">📱 Put Phone Away</button>
+            <button class="chip" data-msg="Multiple faces detected in front of your camera.">👥 Multiple People</button>
+            <button class="chip" data-msg="Please return the browser window to full screen.">🖥️ Enter Fullscreen</button>
+          </div>
+          <div class="form-group" style="margin-top: 14px;">
+            <label>Message Text</label>
+            <textarea id="txtMessage" rows="3" class="input-area" placeholder="Enter warning or notice for the student..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="btnCancelMessage">Cancel</button>
+          <button class="btn btn-primary" id="btnSendMessage">Send via Veyon Bridge</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Screenshot Preview -->
+    <div class="modal-overlay" id="modalScreenshot">
+      <div class="modal-card modal-lg">
+        <div class="modal-header">
+          <h3 id="screenshotTitle">Veyon Desktop Screenshot</h3>
+          <button class="btn-close" id="btnCloseScreenshot">&times;</button>
+        </div>
+        <div class="modal-body text-center">
+          <div class="screenshot-container">
+            <img id="screenshotImg" src="" alt="Veyon Capture Preview" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
