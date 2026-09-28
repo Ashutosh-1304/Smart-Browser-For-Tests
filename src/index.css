@@ -636,3 +636,35 @@ button:hover {
 .code-entry-skip:hover {
   color: var(--text);
 }
+
+.code-entry-success {
+  color: #34d399;
+  font-size: 0.85rem;
+  text-align: left;
+  font-weight: 500;
+  animation: fadeIn 0.3s ease;
+}
+
+.code-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  color: #34d399;
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  align-self: center;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+

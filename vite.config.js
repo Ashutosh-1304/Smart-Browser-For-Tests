@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { veyonMiddleware } from './server/routes/veyon.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -113,10 +114,34 @@ function codesApiPlugin() {
   };
 }
 
+function veyonApiPlugin() {
+  return {
+    name: 'veyon-api-plugin',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url && req.url.startsWith('/api/veyon')) {
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+          res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+          if (req.method === 'OPTIONS') {
+            res.statusCode = 204;
+            res.end();
+            return;
+          }
+
+          if (veyonMiddleware(req, res, next)) return;
+        }
+        next();
+      });
+    },
+  };
+}
+
 // Vite serves the React renderer. base:'./' keeps asset paths relative so the
 // production build also works when Electron loads it via file://.
 export default defineConfig({
-  plugins: [react(), codesApiPlugin()],
+  plugins: [react(), codesApiPlugin(), veyonApiPlugin()],
   base: './',
   server: {
     host: '127.0.0.1',
