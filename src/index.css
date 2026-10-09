@@ -636,3 +636,89 @@ button:hover {
 .code-entry-skip:hover {
   color: var(--text);
 }
+
+/* ---------- Proctor bridge (Veyon agent) ---------- */
+.proctor-link {
+  margin-left: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  letter-spacing: 0.02em;
+}
+.proctor-link.online {
+  color: var(--good);
+  border-color: var(--good);
+}
+.proctor-link.hub {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.proctor-link.off {
+  color: var(--muted);
+}
+
+.proctor-warn-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 10px 16px;
+  background: var(--warn);
+  color: #1a1206;
+  font-weight: 600;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+.proctor-warn-banner button {
+  background: rgba(0, 0, 0, 0.15);
+  border: none;
+  color: inherit;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.proctor-lock-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 10, 20, 0.92);
+  backdrop-filter: blur(6px);
+}
+.proctor-lock-card {
+  text-align: center;
+  padding: 40px 48px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  max-width: 440px;
+}
+.proctor-lock-card svg {
+  color: var(--bad);
+  margin-bottom: 16px;
+}
+.proctor-lock-card h2 {
+  font-size: 24px;
+  margin-bottom: 12px;
+}
+.proctor-lock-card p {
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.proctor-lock-card small {
+  color: var(--muted);
+}
+

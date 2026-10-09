@@ -4,6 +4,7 @@ import FaceMonitor from './components/FaceMonitor.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import { useWindowEvents } from './hooks/useWindowEvents.js';
 import { useFairnessScore } from './hooks/useFairnessScore.js';
+import { useProctorBridge } from './hooks/useProctorBridge.js';
 
 function decodeTestCode(code) {
   const sep = code.indexOf('-');
@@ -32,6 +33,62 @@ export default function App() {
   const [testCode, setTestCode] = useState('');
   const [codeError, setCodeError] = useState('');
   const [isValidatingCode, setIsValidatingCode] = useState(false);
+
+  // Student identity — needed so the control agent (Veyon plugin) can attribute
+  // violations/flags to the right person in the supervisor's console.
+  const [studentName, setStudentName] = useState('');
+  const sessionIdRef = useRef(null);
+  const studentIdRef = useRef(null);
+
+  // Commands pushed down from the agent (Veyon plugin via the hub).
+  const [lockState, setLockState] = useState(null); // { message } | null
+  const [agentBanner, setAgentBanner] = useState(null); // { message, at } | null
+
+  const handleAgentCommand = useCallback(({ action, message }) => {
+    switch (action) {
+      case 'lock':
+        setLockState({ message: message || 'Your exam has been locked by the supervisor.' });
+        break;
+      case 'unlock':
+        setLockState(null);
+        break;
+      case 'warn':
+        setAgentBanner({ message: message || 'Warning from supervisor.', at: Date.now() });
+        break;
+      case 'end':
+        setLockState({ message: message || 'Your exam has been ended by the supervisor.' });
+        break;
+      case 'acknowledge':
+        // Supervisor acknowledged a flag — purely informational on the app side.
+        break;
+      default:
+        break;
+    }
+  }, []);
+
+  const proctor = useProctorBridge({ onCommand: handleAgentCommand });
+
+  // When the exam begins, announce identity + session to the hub so the agent
+  // (and through it the supervisor's console) knows this student is live.
+  useEffect(() => {
+    if (!started) return;
+    if (!studentIdRef.current) {
+      // Derive a stable-ish id: entered name slug, else a random session id.
+      const slug = studentName.trim().replace(/\s+/g, '-').toLowerCase();
+      studentIdRef.current = slug || `anon-${Math.random().toString(36).slice(2, 8)}`;
+    }
+    if (!sessionIdRef.current) {
+      sessionIdRef.current = `sess-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    }
+    proctor.identify({
+      studentId: studentIdRef.current,
+      sessionId: sessionIdRef.current,
+      name: studentName.trim() || null,
+      code: testCode.trim() || null,
+    });
+    proctor.startSession({ code: testCode.trim() || null, url: activeUrl });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started]);
 
   const handleStartWithCode = async () => {
     const trimmed = testCode.trim();
@@ -119,6 +176,13 @@ export default function App() {
 
   const { score: fairnessScore, breakdown: fairnessBreakdown, recordViolation } = useFairnessScore();
 
+  // Push fairness-score updates to the agent whenever they change mid-exam.
+  useEffect(() => {
+    if (!started) return;
+    proctor.sendScore(fairnessScore, fairnessBreakdown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fairnessScore, started]);
+
   const addViolation = useCallback((type, message) => {
     setViolations((prev) =>
       [
@@ -127,7 +191,9 @@ export default function App() {
       ].slice(0, 200)
     );
     recordViolation(type);
-  }, [recordViolation]);
+    // Forward to the control agent (Veyon plugin) via the local hub.
+    proctor.sendViolation(type, message);
+  }, [recordViolation, proctor]);
 
   const addWarning = useCallback((type, message) => {
     setViolations((prev) =>
@@ -377,6 +443,15 @@ export default function App() {
           <p className="code-entry-subtitle">Secure Assessment Platform</p>
 
           <div className="code-entry-form">
+            <label className="code-entry-label">Your Name / Roll No.</label>
+            <input
+              className="code-entry-input"
+              type="text"
+              value={studentName}
+              onChange={(e) => setStudentName(e.target.value)}
+              placeholder="e.g. Ashutosh 21BCS1234"
+              spellCheck={false}
+            />
             <label className="code-entry-label">Enter Test Code</label>
             <input
               className="code-entry-input"
@@ -408,9 +483,40 @@ export default function App() {
 
   return (
     <div className="app">
+      {lockState && (
+        <div className="proctor-lock-overlay">
+          <div className="proctor-lock-card">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <h2>Exam Locked</h2>
+            <p>{lockState.message}</p>
+            <small>Please wait for your supervisor.</small>
+          </div>
+        </div>
+      )}
+      {agentBanner && (
+        <div className="proctor-warn-banner" role="alert">
+          <span>⚠ {agentBanner.message}</span>
+          <button onClick={() => setAgentBanner(null)} aria-label="Dismiss">×</button>
+        </div>
+      )}
       <header className="topbar">
         <div className="brand">
           <span className="dot" /> Secure Assessment <small>PoC</small>
+          <span
+            className={`proctor-link ${proctor.agentOnline ? 'online' : proctor.connected ? 'hub' : 'off'}`}
+            title={
+              proctor.agentOnline
+                ? 'Supervisor agent connected'
+                : proctor.connected
+                ? 'Connected to local hub (no agent yet)'
+                : 'Proctor hub offline'
+            }
+          >
+            {proctor.agentOnline ? '● Monitored' : proctor.connected ? '● Hub' : '○ Offline'}
+          </span>
         </div>
         <div className="url-bar">
           <input

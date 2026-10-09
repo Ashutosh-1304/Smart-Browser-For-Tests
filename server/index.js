@@ -1,6 +1,7 @@
 import { app } from './app.js';
 import { config } from './config.js';
 import { initDb, db } from './db.js';
+import { attachProctorBridge } from './proctor/bridge.js';
 
 async function startServer() {
   try {
@@ -11,8 +12,13 @@ async function startServer() {
       console.log(`[Server] Smart Browser API server listening on http://localhost:${config.port}`);
     });
 
+    // Proctor WebSocket hub: bridges the Electron app <-> external control
+    // agent (Veyon plugin) on this student PC. Shares the HTTP server/port.
+    const proctorBridge = attachProctorBridge(server, { path: '/proctor' });
+
     const shutdown = async () => {
       console.log('\n[Server] Shutting down gracefully...');
+      await proctorBridge.close();
       server.close(async () => {
         await db.destroy();
         console.log('[Server] Database closed and server terminated.');
