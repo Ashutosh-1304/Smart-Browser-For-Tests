@@ -14,12 +14,16 @@ import FairnessScoreEngine from '../engine/FairnessScoreEngine.js';
  *   engine: FairnessScoreEngine
  * }}
  */
-export function useFairnessScore(config) {
+export function useFairnessScore(config, options) {
   const engineRef = useRef(null);
+  const configKeyRef = useRef(null);
 
-  // Lazily initialise the engine once (survives re-renders).
-  if (!engineRef.current) {
-    engineRef.current = new FairnessScoreEngine(config);
+  // Recreate the engine when the resolved preset/config identity changes
+  // (e.g. a test code carrying a different strictness level was entered).
+  const configKey = JSON.stringify([config, options]);
+  if (engineRef.current == null || configKeyRef.current !== configKey) {
+    configKeyRef.current = configKey;
+    engineRef.current = new FairnessScoreEngine(config, options);
   }
 
   const engine = engineRef.current;

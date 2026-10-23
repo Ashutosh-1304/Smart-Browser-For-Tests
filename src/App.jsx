@@ -4,6 +4,7 @@ import FaceMonitor from './components/FaceMonitor.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import { useWindowEvents } from './hooks/useWindowEvents.js';
 import { useFairnessScore } from './hooks/useFairnessScore.js';
+import { resolvePreset, engineConfigFromPreset, DEFAULT_PRESET_ID } from './engine/proctoringPresets.js';
 
 function decodeTestCode(code) {
   const sep = code.indexOf('-');
@@ -33,6 +34,21 @@ export default function App() {
   const [codeError, setCodeError] = useState('');
   const [isValidatingCode, setIsValidatingCode] = useState(false);
 
+  // The proctoring strictness preset attached to the entered test code.
+  // Resolved once at start; defaults to Level 2 / Standard for direct access
+  // or codes that don't carry a preset.
+  const [activePreset, setActivePreset] = useState(() => resolvePreset(DEFAULT_PRESET_ID));
+  const activePresetRef = useRef(activePreset);
+  activePresetRef.current = activePreset;
+
+  // Resolve the strictness preset for this session into state before the test
+  // starts so the engine + dwell timers run under the right level.
+  const applyPreset = (rawPreset) => {
+    const resolved = resolvePreset(rawPreset);
+    setActivePreset(resolved);
+    return resolved;
+  };
+
   const handleStartWithCode = async () => {
     const trimmed = testCode.trim();
     if (!trimmed) {
@@ -49,6 +65,7 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         if (data.url) {
+          applyPreset(data.preset || data.presetId || data.proctoringLevel);
           setUrlInput(data.url);
           setActiveUrl(data.url);
           setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: data.url }]);
@@ -60,6 +77,7 @@ export default function App() {
         if (legacyDecoded) {
           try {
             new URL(legacyDecoded);
+            applyPreset(null);
             setUrlInput(legacyDecoded);
             setActiveUrl(legacyDecoded);
             setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: legacyDecoded }]);
@@ -84,6 +102,7 @@ export default function App() {
       if (legacyDecoded) {
         try {
           new URL(legacyDecoded);
+          applyPreset(null);
           setUrlInput(legacyDecoded);
           setActiveUrl(legacyDecoded);
           setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: legacyDecoded }]);
@@ -99,6 +118,7 @@ export default function App() {
   };
 
   const handleStartWithoutCode = () => {
+    applyPreset(null);
     setStarted(true);
   };
 
@@ -117,7 +137,10 @@ export default function App() {
   const [fullscreen, setFullscreen] = useState(true);
   const [violations, setViolations] = useState([]);
 
-  const { score: fairnessScore, breakdown: fairnessBreakdown, recordViolation } = useFairnessScore();
+  const { score: fairnessScore, breakdown: fairnessBreakdown, recordViolation } = useFairnessScore(
+    engineConfigFromPreset(activePreset),
+    { grace: activePreset.grace }
+  );
 
   const addViolation = useCallback((type, message) => {
     setViolations((prev) =>
@@ -271,68 +294,93 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
+      // Per-violation detection sensitivity (dwell + cooldown) comes from the
+      // active strictness preset. `enabled === false` types are skipped so a
+      // disabled violation neither fires nor counts.
+      const pv = activePresetRef.current.violations || {};
+      const setting = (type, fallbackDwell, fallbackCooldown) => {
+        const cfg = pv[type];
+        if (cfg && cfg.enabled === false) return null; // disabled at this level
+        return {
+          dwell: cfg?.dwellMs ?? fallbackDwell,
+          cooldown: cfg?.cooldownMs ?? fallbackCooldown,
+        };
+      };
 
+      const faceCfg = setting('face', 3000, 5000);
       if (
+        faceCfg &&
         noFaceSince.current &&
-        now - noFaceSince.current > 3000 &&
-        now - lastNoFaceViolation.current > 5000
+        now - noFaceSince.current > faceCfg.dwell &&
+        now - lastNoFaceViolation.current > faceCfg.cooldown
       ) {
         lastNoFaceViolation.current = now;
-        addViolation('face', 'No face detected for 3+ seconds');
+        addViolation('face', `No face detected for ${Math.round(faceCfg.dwell / 100) / 10}+ seconds`);
       }
 
+      const multiCfg = setting('multiple-faces', 3000, 5000);
       if (
+        multiCfg &&
         multipleFacesSince.current &&
-        now - multipleFacesSince.current > 3000 &&
-        now - lastMultipleFacesViolation.current > 5000
+        now - multipleFacesSince.current > multiCfg.dwell &&
+        now - lastMultipleFacesViolation.current > multiCfg.cooldown
       ) {
         lastMultipleFacesViolation.current = now;
         const count = currentFaceCount.current;
-        addViolation('multiple-faces', `Multiple people detected (${count} faces) for 3+ seconds`);
+        addViolation('multiple-faces', `Multiple people detected (${count} faces)`);
       }
 
+      const gazeCfg = setting('gaze', 1500, 5000);
       if (
+        gazeCfg &&
         gazeAwaySince.current &&
-        now - gazeAwaySince.current > 1500 &&
-        now - lastGazeViolation.current > 5000
+        now - gazeAwaySince.current > gazeCfg.dwell &&
+        now - lastGazeViolation.current > gazeCfg.cooldown
       ) {
         lastGazeViolation.current = now;
         const dir = currentGazeDirection.current || 'Away';
         addViolation('gaze', `Looking away from screen (${dir})`);
       }
 
-      Object.keys(obstacleSince.current).forEach((cat) => {
-        const detectedAt = obstacleSince.current[cat];
-        const lastViolatedAt = lastObstacleViolation.current[cat] || 0;
+      const obstacleCfg = setting('obstacle', 1000, 5000);
+      if (obstacleCfg) {
+        Object.keys(obstacleSince.current).forEach((cat) => {
+          const detectedAt = obstacleSince.current[cat];
+          const lastViolatedAt = lastObstacleViolation.current[cat] || 0;
 
-        if (
-          detectedAt &&
-          now - detectedAt > 1000 &&
-          now - lastViolatedAt > 5000
-        ) {
-          lastObstacleViolation.current[cat] = now;
-          const friendlyName = FRIENDLY_NAMES[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
-          addViolation('obstacle', `[OBJECT DETECTED] ${friendlyName} present for 1+ second`);
-        }
-      });
+          if (
+            detectedAt &&
+            now - detectedAt > obstacleCfg.dwell &&
+            now - lastViolatedAt > obstacleCfg.cooldown
+          ) {
+            lastObstacleViolation.current[cat] = now;
+            const friendlyName = FRIENDLY_NAMES[cat] || cat.charAt(0).toUpperCase() + cat.slice(1);
+            addViolation('obstacle', `[OBJECT DETECTED] ${friendlyName} present for ${Math.round(obstacleCfg.dwell / 100) / 10}+ second`);
+          }
+        });
+      }
 
+      const focusCfg = setting('focus', 2000, 2000);
       if (
+        focusCfg &&
         unfocusedSince.current &&
-        now - unfocusedSince.current > 2000 &&
-        now - lastFocusViolation.current > 2000
+        now - unfocusedSince.current > focusCfg.dwell &&
+        now - lastFocusViolation.current > focusCfg.cooldown
       ) {
         lastFocusViolation.current = now;
         const secs = Math.round((now - unfocusedSince.current) / 1000);
         addViolation('focus', `Window still unfocused (${secs}s)`);
       }
 
+      const fullscreenCfg = setting('fullscreen', 1000, 5000);
       if (
+        fullscreenCfg &&
         notFullscreenSince.current &&
-        now - notFullscreenSince.current > 1000 &&
-        now - lastNotFullscreenViolation.current > 5000
+        now - notFullscreenSince.current > fullscreenCfg.dwell &&
+        now - lastNotFullscreenViolation.current > fullscreenCfg.cooldown
       ) {
         lastNotFullscreenViolation.current = now;
-        addViolation('fullscreen', 'Fullscreen not enabled for 1+ second');
+        addViolation('fullscreen', 'Fullscreen not enabled');
       }
 
     }, 500);
@@ -411,6 +459,9 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <span className="dot" /> Secure Assessment <small>PoC</small>
+          <span className="preset-badge" title={`Proctoring level: ${activePreset.name} (pass < ${activePreset.passThreshold})`}>
+            {activePreset.name} · L{activePreset.level ?? 'C'}
+          </span>
         </div>
         <div className="url-bar">
           <input

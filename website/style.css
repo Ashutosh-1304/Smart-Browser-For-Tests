@@ -160,6 +160,37 @@ body {
   letter-spacing: 0.06em;
   margin-bottom: 8px;
 }
+
+/* Proctoring strictness preset selector */
+.preset-selector {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.preset-option { display: block; }
+.preset-option input { position: absolute; opacity: 0; pointer-events: none; }
+.preset-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color .15s, background .15s, transform .1s;
+}
+.preset-card:hover { transform: translateY(-1px); border-color: rgba(56,189,248,0.4); }
+.preset-option input:checked + .preset-card {
+  border-color: #38bdf8;
+  background: rgba(56,189,248,0.1);
+  box-shadow: 0 0 0 1px #38bdf8 inset;
+}
+.preset-name { font-weight: 700; font-size: 0.88rem; display: flex; justify-content: space-between; align-items: center; }
+.preset-name em { font-style: normal; font-size: 0.68rem; color: #38bdf8; font-weight: 800; }
+.preset-desc { font-size: 0.72rem; color: var(--text-dim); line-height: 1.35; }
+.preset-note { font-size: 0.72rem; color: var(--text-dim); margin: 4px 0 14px; }
 .input-group {
   display: flex;
   align-items: center;

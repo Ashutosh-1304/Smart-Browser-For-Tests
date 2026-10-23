@@ -53,12 +53,21 @@ async function generateCode() {
   `;
 
   try {
+    const presetId = (document.querySelector('input[name="preset"]:checked') || {}).value || 'level-2';
+    const body = { url: fullUrl };
+    if (presetId === 'custom') {
+      body.preset = 'custom';
+      body.custom = { baseId: 'level-2' };
+    } else {
+      body.presetId = presetId;
+    }
+
     const response = await fetch(`${API_BASE_URL}/codes`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ url: fullUrl }),
+      body: JSON.stringify(body),
     });
 
     const data = await response.json();
@@ -74,6 +83,8 @@ async function generateCode() {
     document.getElementById('resultLink').textContent = data.url;
     document.getElementById('resultLink').title = data.url;
     document.getElementById('resultTime').textContent = new Date(data.createdAt).toLocaleString();
+    const presetEl = document.getElementById('resultPreset');
+    if (presetEl) presetEl.textContent = data.preset ? `${data.preset.name} (${data.presetId})` : (data.presetId || 'level-2');
 
     document.getElementById('step1').classList.add('hidden');
     document.getElementById('step2').classList.remove('hidden');
@@ -167,14 +178,16 @@ async function renderHistory() {
     html += '<p style="color:var(--warning,#f59e0b);font-size:0.78rem;margin-bottom:8px;">⚠️ Server unreachable — showing cached history.</p>';
   }
 
-  html += '<table><thead><tr><th>Code</th><th>Link</th><th>Status</th><th>Created</th></tr></thead><tbody>';
+  html += '<table><thead><tr><th>Code</th><th>Link</th><th>Level</th><th>Status</th><th>Created</th></tr></thead><tbody>';
   codes.forEach((item) => {
     const formattedDate = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '';
     const statusColor = item.status === 'active' ? '#10b981' : item.status === 'revoked' ? '#ef4444' : '#f59e0b';
+    const presetLabel = { 'level-1': 'L1', 'level-2': 'L2', 'level-3': 'L3', 'custom': 'Custom' }[item.presetId] || 'L2';
 
     html += `<tr>
       <td class="code-cell" title="${item.code}">${item.code}</td>
       <td class="link-cell" title="${item.url}">${item.url}</td>
+      <td><span style="display:inline-block;padding:2px 8px;border-radius:8px;font-size:0.72rem;font-weight:700;background:rgba(56,189,248,0.12);color:#38bdf8">${presetLabel}</span></td>
       <td><span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600;background:rgba(255,255,255,0.06);color:${statusColor}">${item.status || 'active'}</span></td>
       <td>${formattedDate}</td>
     </tr>`;
