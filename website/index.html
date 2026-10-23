@@ -98,6 +98,49 @@
         </div>
         <p class="preset-note" id="presetNote">The chosen level is stored with the code — every student who joins is proctored to the same standard.</p>
 
+        <!-- Custom preset editor: shown when "Custom" is selected -->
+        <div class="custom-editor hidden" id="customEditor">
+          <div class="custom-editor-head">
+            <span>Fine-tune each violation. Start from a base level:</span>
+            <select id="customBase" class="custom-base-select">
+              <option value="level-1">Level 1 — Relaxed</option>
+              <option value="level-2" selected>Level 2 — Standard</option>
+              <option value="level-3">Level 3 — Strict</option>
+            </select>
+          </div>
+          <div id="customViolations"></div>
+
+          <div class="custom-row global-row">
+            <div class="custom-row-head">
+              <span class="custom-type-name">Grace — forgiven events per type</span>
+              <span class="custom-value" id="customGraceVal"></span>
+            </div>
+            <input type="range" id="customGrace" min="0" max="10" step="1" />
+          </div>
+          <div class="custom-row global-row">
+            <div class="custom-row-head">
+              <span class="custom-type-name">Pass threshold — flag below</span>
+              <span class="custom-value" id="customPassVal"></span>
+            </div>
+            <input type="range" id="customPass" min="0" max="100" step="1" />
+          </div>
+
+          <!-- What-if impact preview -->
+          <div class="whatif-panel">
+            <div class="whatif-head">
+              <strong>What if…</strong>
+              <span>See the score impact before you save.</span>
+            </div>
+            <div class="whatif-sim">
+              <label>Events of each enabled type:
+                <input type="range" id="whatifEvents" min="1" max="10" value="3" step="1" />
+                <b id="whatifEventsVal">3</b>
+              </label>
+              <div class="whatif-result" id="whatifResult"></div>
+            </div>
+          </div>
+        </div>
+
         <button class="btn btn-primary" id="generateBtn" onclick="generateCode()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="16 18 22 12 16 6"/>
