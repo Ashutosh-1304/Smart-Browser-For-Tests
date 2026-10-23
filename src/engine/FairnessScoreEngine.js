@@ -72,12 +72,21 @@ export default class FairnessScoreEngine {
    *   Falls back to DEFAULT_VIOLATION_CONFIG when omitted.
    *   Shape: { [type]: { priority: 'HIGH'|'MEDIUM'|'LOW', deduction: number, label: string } }
    */
-  constructor(config) {
+  /**
+   * @param {Object} [config] – Optional custom violation config.
+   *   Falls back to DEFAULT_VIOLATION_CONFIG when omitted.
+   *   Shape: { [type]: { priority: 'HIGH'|'MEDIUM'|'LOW', deduction: number, label: string } }
+   * @param {Object} [options]
+   * @param {number} [options.grace=0] – Forgiven events per type before deductions apply.
+   */
+  constructor(config, options = {}) {
     this._config = config || { ...DEFAULT_VIOLATION_CONFIG };
+    this._grace = Math.max(0, Math.round(options.grace || 0));
+    this._graceUsed = {};    // type → forgiven events consumed
     this._scores = {};       // type → current score (starts at 100)
     this._counts = {};       // type → number of violations recorded
     this._weights = {};      // type → auto-calculated weight (0–1)
-    this._history = [];      // ordered list of { type, timestamp, scoreBefore, scoreAfter }
+    this._history = [];      // ordered list of { type, timestamp, scoreBefore, scoreAfter, forgiven }
 
     this._initScores();
     this._computeWeights();
@@ -100,14 +109,22 @@ export default class FairnessScoreEngine {
     }
 
     const before = this._scores[type];
-    this._scores[type] = Math.max(0, before - cfg.deduction);
     this._counts[type] = (this._counts[type] || 0) + 1;
+
+    // Grace: the first N events per type are counted but forgiven (no deduction).
+    const forgiven = (this._graceUsed[type] || 0) < this._grace;
+    if (forgiven) {
+      this._graceUsed[type] = (this._graceUsed[type] || 0) + 1;
+    } else {
+      this._scores[type] = Math.max(0, before - cfg.deduction);
+    }
 
     this._history.push({
       type,
       timestamp: Date.now(),
       scoreBefore: before,
       scoreAfter: this._scores[type],
+      forgiven,
     });
 
     return {
@@ -153,6 +170,7 @@ export default class FairnessScoreEngine {
    */
   reset() {
     this._initScores();
+    this._graceUsed = {};
     this._history = [];
   }
 

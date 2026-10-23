@@ -32,6 +32,16 @@ export async function initDb() {
       table.string('status', 20).defaultTo('active').notNullable();
       table.integer('hit_count').defaultTo(0).notNullable();
       table.string('created_by').nullable();
+      table.string('preset_id', 20).defaultTo('level-2').notNullable();
+      table.text('preset_config').nullable();
     });
+  } else {
+    const hasPreset = await db.schema.hasColumn('codes', 'preset_id');
+    if (!hasPreset) {
+      await db.schema.alterTable('codes', (table) => {
+        table.string('preset_id', 20).defaultTo('level-2').notNullable();
+        table.text('preset_config').nullable();
+      });
+    }
   }
 }

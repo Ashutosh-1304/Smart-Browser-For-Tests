@@ -3,8 +3,33 @@ import crypto from 'crypto';
 import { db } from '../db.js';
 import { validateAndNormalizeUrl } from '../utils/urlValidator.js';
 import { generateUniqueCode } from '../utils/codeGenerator.js';
+import { resolvePreset, buildCustomPreset, PROCTORING_PRESETS } from '../../src/engine/proctoringPresets.js';
 
 export const codesRouter = express.Router();
+
+// Resolve the proctoring preset selection from a create request body into a
+// storable { preset_id, preset_config } pair, or an { error }.
+function resolvePresetInput(body) {
+  const { preset, presetId, proctoringLevel, custom } = body || {};
+  const requested = presetId || proctoringLevel || preset || 'level-2';
+
+  // A full custom profile object, or the 'custom' id carrying overrides.
+  if (requested === 'custom' || (typeof requested === 'object' && requested !== null)) {
+    const overrides = typeof requested === 'object' && requested !== null ? requested : (custom || {});
+    const baseId = overrides.baseId || 'level-2';
+    const built = buildCustomPreset(baseId, overrides);
+    if (!built.ok) {
+      return { error: `Invalid custom preset: ${built.errors.join('; ')}` };
+    }
+    return { preset_id: 'custom', preset_config: JSON.stringify(built.preset) };
+  }
+
+  if (typeof requested !== 'string' || !PROCTORING_PRESETS[requested]) {
+    return { error: `Unknown proctoring preset "${requested}". Expected level-1, level-2, level-3 or custom.` };
+  }
+  const resolved = resolvePreset(requested);
+  return { preset_id: resolved.id, preset_config: JSON.stringify(resolved) };
+}
 
 codesRouter.post('/', async (req, res, next) => {
   try {
@@ -13,6 +38,11 @@ codesRouter.post('/', async (req, res, next) => {
     const validation = validateAndNormalizeUrl(url);
     if (!validation.valid) {
       return res.status(400).json({ error: validation.error });
+    }
+
+    const presetResult = resolvePresetInput(req.body);
+    if (presetResult.error) {
+      return res.status(400).json({ error: presetResult.error });
     }
 
     const normalizedUrl = validation.url;
@@ -42,7 +72,11 @@ codesRouter.post('/', async (req, res, next) => {
       status: 'active',
       hit_count: 0,
       created_by: finalCreatedBy,
+      preset_id: presetResult.preset_id,
+      preset_config: presetResult.preset_config,
     });
+
+    const resolvedPreset = JSON.parse(presetResult.preset_config);
 
     return res.status(201).json({
       code,
@@ -50,6 +84,8 @@ codesRouter.post('/', async (req, res, next) => {
       status: 'active',
       createdAt,
       expiresAt: finalExpiresAt,
+      presetId: presetResult.preset_id,
+      preset: resolvedPreset,
     });
   } catch (err) {
     next(err);
@@ -94,6 +130,8 @@ codesRouter.get('/:code', async (req, res, next) => {
       code: record.code,
       url: record.target_url,
       status: record.status,
+      presetId: record.preset_id || 'level-2',
+      preset: record.preset_config ? JSON.parse(record.preset_config) : resolvePreset('level-2'),
     });
   } catch (err) {
     next(err);
@@ -105,7 +143,7 @@ codesRouter.get('/', async (req, res, next) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 100);
     const status = req.query.status;
 
-    let query = db('codes').select('code', 'target_url', 'status', 'created_at', 'expires_at', 'hit_count');
+    let query = db('codes').select('code', 'target_url', 'status', 'created_at', 'expires_at', 'hit_count', 'preset_id');
 
     if (status) {
       query = query.where({ status });
@@ -120,6 +158,7 @@ codesRouter.get('/', async (req, res, next) => {
       createdAt: row.created_at,
       expiresAt: row.expires_at,
       hitCount: row.hit_count,
+      presetId: row.preset_id || 'level-2',
     }));
 
     return res.json(result);
