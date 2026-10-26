@@ -1,27 +1,5 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   Smart Browser — Test Code Generator  |  Logic
-   ─────────────────────────────────────────────────────────────────────────
-   Encoding scheme (no server needed):
-     1. Take the URL string.
-     2. Base64-encode it.
-     3. Prepend a 6-char random alphanumeric "human-friendly code".
-     4. Store the mapping {code → url} in localStorage so the history table
-        can reconstruct the list on reload.
-     5. The final shareable code is: <6-char code>
-     6. In the Electron app the student enters this code, the app calls the
-        same decode logic to recover the original URL.
-   ─────────────────────────────────────────────────────────────────────────
-   Because this is a standalone demo with no backend, the code ↔ URL mapping
-   lives entirely in localStorage. The Electron app also uses the same
-   encode/decode functions (shared via a simple convention: the code IS a
-   compressed representation of the URL itself, so no server lookup needed).
-   ═══════════════════════════════════════════════════════════════════════════ */
 
-// ── Random Code Generator & Validation helpers ───────────────────────── //
 
-/**
- * Generate a random 6-character alphanumeric code (uppercase letters and numbers).
- */
 function generateRandomCode(length = 6) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let result = '';
@@ -41,18 +19,10 @@ function generateRandomCode(length = 6) {
   return result;
 }
 
-/**
- * Encode a URL into a short 6-character alphanumeric code.
- * Stores code, creation time, and 20-second expiry time in the database.
- */
 function encodeURL(url) {
   return generateRandomCode(6);
 }
 
-/**
- * Decode / verify a code back into the original URL.
- * Rejects expired codes (expiry set to exactly 20 seconds).
- */
 function decodeCode(code) {
   if (!code) return null;
   const cleanCode = code.trim().toUpperCase();
@@ -60,7 +30,6 @@ function decodeCode(code) {
   const item = history.find((entry) => entry.code === cleanCode);
 
   if (!item) {
-    // Check fallback legacy encoding (prefix-base64)
     const sep = code.indexOf('-');
     if (sep !== -1) {
       const b64part = code.slice(sep + 1);
@@ -75,19 +44,15 @@ function decodeCode(code) {
     return null;
   }
 
-  // Reject expired codes (> 20 seconds from creation)
   const now = Date.now();
   const expiry = item.expiresTimestamp || (item.expiresAt ? new Date(item.expiresAt).getTime() : 0);
   if (expiry && now > expiry) {
-    return null; // Rejected: code has expired
+    return null;
   }
 
   return item.url;
 }
 
-/**
- * Verify a test code with status details.
- */
 function verifyCode(code) {
   if (!code) return { valid: false, error: 'Please enter a test code.' };
   const cleanCode = code.trim().toUpperCase();
@@ -107,7 +72,6 @@ function verifyCode(code) {
   return { valid: true, url: item.url, code: item.code, record: item };
 }
 
-// ── Storage ─────────────────────────────────────────────────────────────── //
 const STORAGE_KEY = 'smartbrowser_codes';
 const CANDIDATES_STORAGE_KEY = 'smartbrowser_candidates';
 
@@ -123,9 +87,6 @@ function saveHistory(list) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
 }
 
-/**
- * Save candidate details in the database (Name, Enrollment Number, Batch).
- */
 function saveCandidateDetails(details) {
   if (!details || !details.name || !details.enrollmentNumber || !details.batch) {
     return false;
@@ -149,7 +110,6 @@ function saveCandidateDetails(details) {
   }
 }
 
-// ── UI Logic ────────────────────────────────────────────────────────────── //
 let lastGeneratedCode = '';
 
 function generateCode() {
@@ -157,14 +117,12 @@ function generateCode() {
   const errorText = document.getElementById('errorText');
   const url = input.value.trim();
 
-  // Validate
   if (!url) {
     errorText.textContent = 'Please enter a test link.';
     input.focus();
     return;
   }
 
-  // Basic URL validation
   try {
     const parsed = new URL(url.startsWith('http') ? url : 'https://' + url);
     if (!parsed.hostname.includes('.')) throw new Error();
@@ -179,14 +137,11 @@ function generateCode() {
   const fullUrl = url.startsWith('http') ? url : 'https://' + url;
   const now = Date.now();
   const createdAt = new Date(now).toISOString();
-  // Exactly 20 seconds expiry
   const expiresAt = new Date(now + 20 * 1000).toISOString();
 
-  // Generate random 6-character alphanumeric code
   const code = generateRandomCode(6);
   lastGeneratedCode = code;
 
-  // Save to database (localStorage)
   const history = loadHistory();
   const codeRecord = {
     code,
@@ -202,7 +157,6 @@ function generateCode() {
   if (history.length > 50) history.length = 50;
   saveHistory(history);
 
-  // Sync with shared codes.json via local API server (port 5173)
   try {
     const apiTarget = window.location.port === '5173' ? '/api/codes' : 'http://127.0.0.1:5173/api/codes';
     fetch(apiTarget, {
@@ -210,13 +164,10 @@ function generateCode() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(codeRecord),
     }).catch(() => {
-      // Offline fallback: handled by localStorage
     });
   } catch {
-    // Graceful fallback
   }
 
-  // Show result
   document.getElementById('codeText').textContent = code;
   document.getElementById('resultLink').textContent = fullUrl;
   document.getElementById('resultLink').title = fullUrl;
@@ -241,7 +192,6 @@ function copyCode() {
   navigator.clipboard.writeText(code).then(() => {
     showToast('Code copied to clipboard!');
   }).catch(() => {
-    // Fallback
     const ta = document.createElement('textarea');
     ta.value = code;
     document.body.appendChild(ta);
@@ -263,7 +213,6 @@ function resetForm() {
   document.getElementById('linkInput').focus();
 }
 
-// ── Toast ────────────────────────────────────────────────────────────────── //
 function showToast(msg) {
   let toast = document.querySelector('.toast');
   if (!toast) {
@@ -276,7 +225,6 @@ function showToast(msg) {
   setTimeout(() => toast.classList.remove('show'), 2200);
 }
 
-// ── History table ────────────────────────────────────────────────────────── //
 function renderHistory() {
   const container = document.getElementById('historyTable');
   if (!container) return;
@@ -307,7 +255,6 @@ function renderHistory() {
   container.innerHTML = html;
 }
 
-// ── Init ─────────────────────────────────────────────────────────────────── //
 if (typeof document !== 'undefined') {
   document.addEventListener('DOMContentLoaded', () => {
     renderHistory();
@@ -316,7 +263,6 @@ if (typeof document !== 'undefined') {
   });
 }
 
-// ── Export / Global attachment for testing and script tag environments ──── //
 if (typeof globalThis !== 'undefined') {
   globalThis.generateRandomCode = generateRandomCode;
   globalThis.generateCode = generateCode;

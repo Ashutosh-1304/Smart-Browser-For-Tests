@@ -1,24 +1,10 @@
-/**
- * Veyon API Route Handler
- * 
- * Provides HTTP endpoints to interface with the Veyon service.
- * Supports both standalone Express routers and standard Node.js/Connect HTTP middlewares
- * (such as Vite dev server's middleware pipeline).
- */
 
 import veyonClient from '../services/veyonClient.js';
 
-/**
- * Handle GET /api/veyon/health
- *
- * @param {import('http').IncomingMessage} req
- * @param {import('http').ServerResponse} res
- */
 export async function handleVeyonHealth(req, res) {
   try {
     const health = await veyonClient.checkHealth();
     
-    // Status code: 200 if WebAPI is reachable, 503 Service Unavailable if unreachable.
     res.statusCode = health.available ? 200 : 503;
     res.setHeader('Content-Type', 'application/json');
     res.end(JSON.stringify(health, null, 2));
@@ -36,14 +22,6 @@ export async function handleVeyonHealth(req, res) {
   }
 }
 
-/**
- * Universal middleware dispatcher for Veyon routes.
- * 
- * @param {import('http').IncomingMessage} req
- * @param {import('http').ServerResponse} res
- * @param {Function} next
- * @returns {boolean} True if route was handled, false if forwarded
- */
 export function veyonMiddleware(req, res, next) {
   const url = new URL(req.url, `http://${req.headers.host || '127.0.0.1:5173'}`);
 

@@ -33,7 +33,6 @@ function codesApiPlugin() {
     name: 'codes-api-plugin',
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        // Enable CORS for external browser (Chrome/Safari) requests
         res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
         res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -138,8 +137,6 @@ function veyonApiPlugin() {
   };
 }
 
-// Vite serves the React renderer. base:'./' keeps asset paths relative so the
-// production build also works when Electron loads it via file://.
 export default defineConfig({
   plugins: [react(), codesApiPlugin(), veyonApiPlugin()],
   base: './',

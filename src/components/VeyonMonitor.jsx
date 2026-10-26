@@ -1,47 +1,27 @@
 import { useEffect, useState } from 'react';
 
-/**
- * VeyonMonitor Prototype Component
- * 
- * Demonstrates the intended UI structure for candidate screen monitoring:
- *   <div className="candidate-screen-card">
- *       <img ... />
- *   </div>
- * 
- * State handling:
- * - 'connecting': Polling Veyon WebAPI health
- * - 'unavailable': Veyon Service/WebAPI is unreachable (e.g. not installed or stopped)
- * - 'connected': Veyon WebAPI is active and responding
- * - 'screen_unavailable': WebAPI is reachable, but no active screen session has been authenticated
- * 
- * Note: If a real Veyon installation is not configured, a clear placeholder state is displayed
- * instead of generating fake successful screen data.
- */
 export default function VeyonMonitor({
   candidateName = 'Candidate Machine',
   enrollmentNumber = 'N/A',
   batch = 'N/A',
   autoPoll = false,
 }) {
-  const [status, setStatus] = useState('connecting'); // 'connecting' | 'unavailable' | 'connected' | 'screen_unavailable'
+  const [status, setStatus] = useState('connecting');
   const [errorDetails, setErrorDetails] = useState('');
   const [endpoint, setEndpoint] = useState('127.0.0.1:11080');
-  const [screenUrl, setScreenUrl] = useState(null); // Real image blob/data URL when available
+  const [screenUrl, setScreenUrl] = useState(null);
 
   const checkVeyonHealth = async () => {
     setStatus('connecting');
     setErrorDetails('');
 
     try {
-      // In development, Vite dev server proxies /api/veyon/health.
-      // In standalone backend setups, this targets the backend API port.
       const res = await fetch('/api/veyon/health');
       const data = await res.json();
 
       if (data.available && data.webapi === 'reachable') {
         setStatus('connected');
         setEndpoint(data.endpoint || '127.0.0.1:11080');
-        // In the first phase without an authenticated Veyon session, screen capture is unavailable.
         setStatus('screen_unavailable');
       } else {
         setStatus('unavailable');
@@ -65,7 +45,6 @@ export default function VeyonMonitor({
 
   return (
     <div className="candidate-screen-card" style={cardStyles.card}>
-      {/* Header Info */}
       <div style={cardStyles.header}>
         <div>
           <h4 style={cardStyles.title}>{candidateName}</h4>
@@ -78,7 +57,6 @@ export default function VeyonMonitor({
         </div>
       </div>
 
-      {/* Screen Container (div > img architecture) */}
       <div className="screen-frame-container" style={cardStyles.screenWrapper}>
         {screenUrl ? (
           <img
@@ -109,7 +87,6 @@ export default function VeyonMonitor({
         )}
       </div>
 
-      {/* Actions / Diagnostics footer */}
       <div style={cardStyles.footer}>
         <span style={cardStyles.endpointLabel}>Target: {endpoint}</span>
         <button

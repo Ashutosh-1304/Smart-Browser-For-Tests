@@ -27,7 +27,6 @@ test('VeyonClient - Custom configuration override', () => {
 });
 
 test('VeyonClient - Gracefully handles offline Veyon service', async () => {
-  // Point client to an unused local port that will refuse connection
   const client = new VeyonClient({
     host: '127.0.0.1',
     port: 59999,
@@ -43,7 +42,6 @@ test('VeyonClient - Gracefully handles offline Veyon service', async () => {
 });
 
 test('VeyonClient - Successfully reports reachable when mock Veyon WebAPI is active', async () => {
-  // Spin up an ephemeral mock HTTP server simulating Veyon WebAPI
   const mockServer = http.createServer((req, res) => {
     if (req.url === '/api/v1/session') {
       res.statusCode = 200;
