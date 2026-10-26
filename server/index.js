@@ -33,7 +33,6 @@ async function startServer() {
         process.exit(0);
       });
 
-      // Safety fallback to guarantee prompt termination
       setTimeout(() => process.exit(0), 500).unref();
     };
 

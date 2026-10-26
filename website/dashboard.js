@@ -1,12 +1,7 @@
-/**
- * Smart Browser — Invigilator Sidecar Console (Approach A)
- * WebSocket client, live grid rendering, and Veyon bridge action dispatching.
- */
 
 (function () {
   'use strict';
 
-  // --- State ---
   let ws = null;
   let students = [];
   let actions = [];
@@ -17,7 +12,6 @@
   let searchQuery = '';
   let pendingMessageStudentId = null;
 
-  // --- DOM Elements ---
   const wsIndicator = document.getElementById('wsStatusIndicator');
   const wsText = document.getElementById('wsStatusText');
   const bridgeText = document.getElementById('bridgeStatusText');
@@ -28,25 +22,21 @@
   const terminalLog = document.getElementById('terminalLog');
   const auditCount = document.getElementById('auditCount');
 
-  // Metrics
   const mActive = document.getElementById('metricActiveCount');
   const mFlagged = document.getElementById('metricFlaggedCount');
   const mLocked = document.getElementById('metricLockedCount');
   const mAvg = document.getElementById('metricAvgScore');
 
-  // Filter counters
   const fAll = document.getElementById('filterAllCount');
   const fOnline = document.getElementById('filterOnlineCount');
   const fFlagged = document.getElementById('filterFlaggedCount');
   const fLocked = document.getElementById('filterLockedCount');
 
-  // Modals
   const modalRules = document.getElementById('modalAutoRules');
   const modalInspector = document.getElementById('modalInspector');
   const modalMessage = document.getElementById('modalMessage');
   const modalScreenshot = document.getElementById('modalScreenshot');
 
-  // --- WebSocket Connection ---
   function connectWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const host = window.location.host;
@@ -82,7 +72,6 @@
     };
   }
 
-  // --- Message Dispatcher ---
   function handleWsMessage(msg) {
     const { type, payload } = msg;
 
@@ -167,7 +156,6 @@
     if (chk) chk.checked = isMock;
   }
 
-  // --- Rendering ---
   function render() {
     updateMetrics();
 
@@ -181,7 +169,6 @@
     studentGrid.style.display = 'grid';
     emptyState.style.display = 'none';
 
-    // Diff / Render tiles
     studentGrid.innerHTML = filtered.map(createStudentCardHtml).join('');
     bindCardEvents();
   }
@@ -189,7 +176,6 @@
   function filterStudents() {
     const q = searchQuery.toLowerCase().trim();
     return students.filter(s => {
-      // Query filter
       if (q) {
         const matchesName = (s.studentName || '').toLowerCase().includes(q);
         const matchesId = (s.studentId || '').toLowerCase().includes(q);
@@ -198,7 +184,6 @@
         if (!matchesName && !matchesId && !matchesHost && !matchesCode) return false;
       }
 
-      // Tab filter
       if (activeFilter === 'online') return s.status === 'online';
       if (activeFilter === 'flagged') return s.fairnessScore < 70;
       if (activeFilter === 'locked') return s.status === 'locked';
@@ -234,7 +219,6 @@
     const scoreClass = score >= 80 ? 'good' : score >= 50 ? 'warn' : 'bad';
     const cardStatusClass = s.status === 'locked' ? 'is-locked' : score < 50 ? 'status-critical' : score < 70 ? 'status-flagged' : '';
     
-    // Status badge
     let statusBadge = `<span class="card-status-badge badge-online">● Online</span>`;
     if (s.status === 'locked') {
       statusBadge = `<span class="card-status-badge badge-locked">🔒 Locked</span>`;
@@ -242,7 +226,6 @@
       statusBadge = `<span class="card-status-badge badge-offline">○ Offline</span>`;
     }
 
-    // Telemetry items
     const faceText = s.faceDetected === 0 ? 'No Face' : s.faceDetected > 1 ? `${s.faceDetected} Faces` : '1 Face';
     const faceFlag = s.faceDetected !== 1;
 
@@ -255,7 +238,6 @@
     const focusText = s.focused ? 'Focused' : 'Tab Switched';
     const focusFlag = !s.focused;
 
-    // Recent violation
     let violationHtml = `<div class="no-violations">✓ No recent integrity flags</div>`;
     if (s.violations && s.violations.length > 0) {
       const latest = s.violations[0];
@@ -340,7 +322,6 @@
     });
   }
 
-  // --- Actions Handling ---
   async function handleCardAction(action, studentId) {
     const student = students.find(s => s.studentId === studentId);
     if (!student) return;
@@ -385,7 +366,6 @@
         payload: { studentId, action, options },
       }));
     } else {
-      // Fallback to REST API
       try {
         await fetch(`/api/integrity/students/${encodeURIComponent(studentId)}/action`, {
           method: 'POST',
@@ -413,7 +393,6 @@
     }
   }
 
-  // --- Inspector Modal ---
   function openInspector(studentId) {
     selectedStudentId = studentId;
     const student = students.find(s => s.studentId === studentId);
@@ -428,7 +407,6 @@
     document.getElementById('inspectMeta').textContent = `ID: ${s.studentId} • Score: ${s.fairnessScore ?? 100} • Status: ${s.status}`;
     document.getElementById('inspectHostInput').value = s.hostname || s.ip || '';
 
-    // Score Breakdown
     const breakdownEl = document.getElementById('inspectBreakdown');
     const bd = s.fairnessBreakdown || {};
     breakdownEl.innerHTML = `
@@ -440,7 +418,6 @@
       </div>
     `;
 
-    // Timeline
     const timelineEl = document.getElementById('inspectTimeline');
     if (!s.violations || s.violations.length === 0) {
       timelineEl.innerHTML = `<div style="color:var(--text-sub); font-size:0.85rem; padding:20px 0;">No violations recorded for this candidate.</div>`;
@@ -457,7 +434,6 @@
     }
   }
 
-  // Inspector Action Buttons
   document.getElementById('btnSaveMapping').addEventListener('click', () => {
     if (!selectedStudentId) return;
     const host = document.getElementById('inspectHostInput').value.trim();
@@ -480,7 +456,6 @@
     selectedStudentId = null;
   });
 
-  // --- Message Modal ---
   function openMessageModal(studentId) {
     pendingMessageStudentId = studentId;
     const s = students.find(st => st.studentId === studentId);
@@ -507,7 +482,6 @@
   document.getElementById('btnCancelMessage').addEventListener('click', () => modalMessage.classList.remove('open'));
   document.getElementById('btnCloseMessage').addEventListener('click', () => modalMessage.classList.remove('open'));
 
-  // --- Screenshot Modal ---
   function showScreenshotModal(url, studentId) {
     const img = document.getElementById('screenshotImg');
     img.src = url;
@@ -516,7 +490,6 @@
   }
   document.getElementById('btnCloseScreenshot').addEventListener('click', () => modalScreenshot.classList.remove('open'));
 
-  // --- Auto-Rules Modal ---
   document.getElementById('btnAutoRules').addEventListener('click', () => {
     syncRulesToUi();
     modalRules.classList.add('open');
@@ -568,7 +541,6 @@
     modalRules.classList.remove('open');
   });
 
-  // --- Terminal Audit Log ---
   function logTerminal(type, text) {
     const line = document.createElement('div');
     line.className = `log-line ${type}`;
@@ -600,7 +572,6 @@
     auditDrawer.classList.remove('open');
   });
 
-  // --- Simulate Candidate Button (For Testing!) ---
   async function spawnSimulatedCandidate() {
     const num = Math.floor(10 + Math.random() * 90);
     const mockCandidate = {
@@ -633,7 +604,6 @@
   document.getElementById('btnSimulateStudent').addEventListener('click', spawnSimulatedCandidate);
   document.getElementById('btnEmptySimulate').addEventListener('click', spawnSimulatedCandidate);
 
-  // --- Broadcast Alert ---
   document.getElementById('btnBroadcast').addEventListener('click', () => {
     const text = prompt('Enter announcement to broadcast to all active candidates:');
     if (!text || !text.trim()) return;
@@ -643,7 +613,6 @@
     logTerminal('info', `Broadcast sent to ${students.length} candidates: "${text}"`);
   });
 
-  // --- Filters & Search ---
   document.querySelectorAll('.filter-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
@@ -658,7 +627,6 @@
     render();
   });
 
-  // --- Utilities ---
   function escapeHtml(str) {
     if (!str) return '';
     return String(str)
@@ -669,6 +637,5 @@
       .replace(/'/g, '&#039;');
   }
 
-  // --- Init ---
   connectWebSocket();
 })();

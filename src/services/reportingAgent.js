@@ -1,10 +1,3 @@
-/**
- * Reporting Agent inside Electron / React candidate app (Approach A)
- * 
- * Streams live candidate telemetry (fairness score, face detection, gaze, obstacles,
- * OS window focus/fullscreen state) and violations to the central integrity server.
- * Also receives control actions from the invigilator / Veyon bridge (lock, unlock, warning messages).
- */
 export class ReportingAgent {
   constructor(options = {}) {
     this.serverUrl = options.serverUrl || this.resolveDefaultWsUrl();
@@ -15,7 +8,6 @@ export class ReportingAgent {
     this.isConnected = false;
     this.isManualClosed = false;
 
-    // Event listeners
     this.callbacks = {
       onStatusChange: options.onStatusChange || (() => {}),
       onLock: options.onLock || (() => {}),
@@ -27,14 +19,10 @@ export class ReportingAgent {
   resolveDefaultWsUrl() {
     const host = window.location.hostname || 'localhost';
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // If running in Vite dev (5173), server is at 3001
     const port = window.location.port === '5173' ? '3001' : (window.location.port || '3001');
     return `${protocol}//${host}:${port}/ws/candidate`;
   }
 
-  /**
-   * Start reporting session for a student.
-   */
   async start(studentInfo = {}) {
     this.isManualClosed = false;
     
@@ -76,10 +64,8 @@ export class ReportingAgent {
         this.isConnected = true;
         this.callbacks.onStatusChange('connected');
 
-        // Send registration
         this.send('candidate:register', this.studentInfo);
 
-        // Start heartbeat ping every 3s
         this.startHeartbeat();
       };
 
@@ -142,9 +128,6 @@ export class ReportingAgent {
     }
   }
 
-  /**
-   * Pushes live telemetry (score, breakdown, face/gaze/obstacles, window state).
-   */
   sendTelemetry(data) {
     if (!this.studentInfo) return;
     this.send('candidate:telemetry', {
@@ -153,9 +136,6 @@ export class ReportingAgent {
     });
   }
 
-  /**
-   * Pushes an individual violation event.
-   */
   sendViolation(violation) {
     if (!this.studentInfo) return;
     this.send('candidate:violation', {

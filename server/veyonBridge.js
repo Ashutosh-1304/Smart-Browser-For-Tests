@@ -5,18 +5,10 @@ import path from 'path';
 
 const execAsync = promisify(exec);
 
-/**
- * Veyon Action Bridge (Approach A)
- * 
- * Shells out to veyon-cli on the invigilator's local machine to execute actions
- * against student machines on the managed LAN (lock, unlock, message, screenshot).
- * When veyon-cli is not installed or when mockMode is explicitly enabled, it seamlessly
- * operates in Simulated Mode with full audit logging and realistic feedback.
- */
 export class VeyonBridge {
   constructor(options = {}) {
     this.cliPath = options.cliPath || process.env.VEYON_CLI_PATH || 'veyon-cli';
-    this.mockMode = options.mockMode !== undefined ? options.mockMode : true; // default true until verified
+    this.mockMode = options.mockMode !== undefined ? options.mockMode : true;
     this.isCliAvailable = false;
     this.actionLogs = [];
     this.rules = {
@@ -26,14 +18,11 @@ export class VeyonBridge {
       cooldownSeconds: options.cooldownSeconds || 30,
       autoScreenshotOnCritical: options.autoScreenshotOnCritical !== undefined ? options.autoScreenshotOnCritical : true,
     };
-    this.lastStudentActionTimes = new Map(); // studentId -> { lock: timestamp, warn: timestamp, screenshot: timestamp }
+    this.lastStudentActionTimes = new Map();
 
     this.checkCliAvailability();
   }
 
-  /**
-   * Probes the local system to see if veyon-cli is installed and executable.
-   */
   async checkCliAvailability() {
     try {
       const { stdout } = await execAsync(`"${this.cliPath}" help`);
@@ -49,9 +38,6 @@ export class VeyonBridge {
     }
   }
 
-  /**
-   * Log an action to the in-memory audit log.
-   */
   logAction(entry) {
     const record = {
       id: `act_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
@@ -65,9 +51,6 @@ export class VeyonBridge {
     return record;
   }
 
-  /**
-   * Gets current bridge status and configuration.
-   */
   getStatus() {
     return {
       cliPath: this.cliPath,
@@ -78,9 +61,6 @@ export class VeyonBridge {
     };
   }
 
-  /**
-   * Update bridge auto-rules configuration.
-   */
   updateRules(newRules = {}) {
     this.rules = {
       ...this.rules,
@@ -89,26 +69,16 @@ export class VeyonBridge {
     return this.rules;
   }
 
-  /**
-   * Set mock mode explicitly.
-   */
   setMockMode(enabled) {
     this.mockMode = !!enabled;
     return this.mockMode;
   }
 
-  /**
-   * Formulate the target argument for veyon-cli.
-   * Veyon host identifiers can be hostname, IP, or computer name.
-   */
   resolveHostTarget(target) {
     if (!target) return '127.0.0.1';
     return String(target).trim();
   }
 
-  /**
-   * Executes a command via veyon-cli or simulated execution.
-   */
   async executeCli(commandArgs, options = {}) {
     const startTime = Date.now();
     const commandStr = `${this.cliPath} ${commandArgs.join(' ')}`;
@@ -116,7 +86,6 @@ export class VeyonBridge {
     const actionType = options.action || 'cli';
 
     if (this.mockMode || !this.isCliAvailable) {
-      // Simulate execution latency (30-100ms)
       await new Promise((resolve) => setTimeout(resolve, 50));
       const simulatedOutput = `[SIMULATED VEYON-CLI] Executed "${commandStr}" successfully on target host ${host}`;
       
@@ -142,7 +111,6 @@ export class VeyonBridge {
       };
     }
 
-    // Real veyon-cli execution
     try {
       const { stdout, stderr } = await execAsync(commandStr, { timeout: 10000 });
       const durationMs = Date.now() - startTime;
@@ -191,12 +159,8 @@ export class VeyonBridge {
     }
   }
 
-  /**
-   * Action: Lock Screen on student machine
-   */
   async lockScreen(host, message = 'Assessment locked by invigilator', metadata = {}) {
     const target = this.resolveHostTarget(host);
-    // Veyon CLI feature command syntax
     const args = ['feature', 'lock', '-c', target, '-m', `"${message.replace(/"/g, '\\"')}"`];
     return this.executeCli(args, {
       action: 'lock',
@@ -207,9 +171,6 @@ export class VeyonBridge {
     });
   }
 
-  /**
-   * Action: Unlock Screen on student machine
-   */
   async unlockScreen(host, metadata = {}) {
     const target = this.resolveHostTarget(host);
     const args = ['feature', 'unlock', '-c', target];
@@ -222,9 +183,6 @@ export class VeyonBridge {
     });
   }
 
-  /**
-   * Action: Send Popup Warning / Message to student machine
-   */
   async sendMessage(host, text, metadata = {}) {
     const target = this.resolveHostTarget(host);
     const safeText = (text || 'Please adhere to test integrity rules.').replace(/"/g, '\\"');
@@ -238,9 +196,6 @@ export class VeyonBridge {
     });
   }
 
-  /**
-   * Action: Capture Screenshot of student machine
-   */
   async captureScreenshot(host, metadata = {}) {
     const target = this.resolveHostTarget(host);
     const outFilename = `screenshot_${target.replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}.png`;
@@ -255,7 +210,6 @@ export class VeyonBridge {
       trigger: metadata.trigger || 'manual',
     });
 
-    // Provide simulated screenshot data URI if simulated or file wasn't created
     if (result.simulated || !fs.existsSync(outPath)) {
       result.screenshotUrl = this.generateSimulatedScreenshotSvg({
         host: target,
@@ -272,10 +226,6 @@ export class VeyonBridge {
     return result;
   }
 
-  /**
-   * Generate an inline SVG Data URI for simulated screenshots.
-   * Useful for instant visual demonstration in the dashboard without requiring real remote desktop Veyon servers.
-   */
   generateSimulatedScreenshotSvg({ host, studentName, studentId, fairnessScore, time }) {
     const scoreColor = fairnessScore >= 80 ? '#10b981' : fairnessScore >= 50 ? '#f59e0b' : '#ef4444';
     const svg = `
@@ -356,10 +306,6 @@ export class VeyonBridge {
     return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
   }
 
-  /**
-   * Evaluates auto-rules against a student's live telemetry / violation.
-   * Fired automatically when a student's score or violations update.
-   */
   async evaluateAutoRules(student, callbacks = {}) {
     if (!this.rules.enabled) return null;
 
@@ -377,7 +323,6 @@ export class VeyonBridge {
     const score = student.fairnessScore !== undefined ? student.fairnessScore : 100;
     const results = [];
 
-    // Rule 1: Auto-Lock if score drops below threshold
     if (score < this.rules.autoLockThreshold && student.status !== 'locked') {
       if (now - studentTimes.lock > cooldownMs) {
         studentTimes.lock = now;
@@ -391,7 +336,6 @@ export class VeyonBridge {
         if (callbacks.onLock) callbacks.onLock(student, msg);
       }
     }
-    // Rule 2: Auto-Warning if score drops below warning threshold but above lock
     else if (score < this.rules.autoWarnThreshold && score >= this.rules.autoLockThreshold) {
       if (now - studentTimes.warn > cooldownMs) {
         studentTimes.warn = now;
@@ -406,7 +350,6 @@ export class VeyonBridge {
       }
     }
 
-    // Rule 3: Auto-Screenshot on Critical Violation (e.g., cell phone / obstacle or multiple people)
     if (this.rules.autoScreenshotOnCritical && student.latestViolation) {
       const vType = student.latestViolation.type;
       const isCritical = vType === 'obstacle' || vType === 'multiple-faces';

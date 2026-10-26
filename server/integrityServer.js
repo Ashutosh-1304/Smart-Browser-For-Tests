@@ -1,27 +1,16 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { defaultVeyonBridge } from './veyonBridge.js';
 
-/**
- * Central Integrity Server (Approach A)
- * 
- * Central coordinator matching our Node.js stack:
- * 1. Receives real-time fairness scores, telemetry, and violation streams from student apps.
- * 2. Fans out live updates over WebSocket to all active invigilator dashboard instances.
- * 3. Bridges invigilator commands and automated rules to VeyonBridge (veyon-cli / simulated actions).
- */
 export class IntegrityServer {
   constructor(options = {}) {
     this.veyonBridge = options.veyonBridge || defaultVeyonBridge;
-    this.students = new Map(); // studentId -> StudentRecord
-    this.candidateSockets = new Map(); // studentId -> WebSocket
-    this.dashboardSockets = new Set(); // Set<WebSocket>
+    this.students = new Map();
+    this.candidateSockets = new Map();
+    this.dashboardSockets = new Set();
     this.wss = null;
     this.heartbeatTimer = null;
   }
 
-  /**
-   * Attach WebSocket server to existing HTTP/HTTPS server instance.
-   */
   attachToServer(httpServer) {
     this.wss = new WebSocketServer({ noServer: true });
 
@@ -40,7 +29,6 @@ export class IntegrityServer {
       this.handleConnection(ws, request);
     });
 
-    // Start background liveness monitor (every 4 seconds)
     this.heartbeatTimer = setInterval(() => {
       this.checkStudentHeartbeats();
     }, 4000);
@@ -49,9 +37,6 @@ export class IntegrityServer {
     return this;
   }
 
-  /**
-   * Handle incoming WebSocket connection.
-   */
   handleConnection(ws, request) {
     const url = new URL(request.url, `http://${request.headers.host || 'localhost'}`);
     const roleParam = url.searchParams.get('role');
@@ -67,7 +52,6 @@ export class IntegrityServer {
 
     if (isDashboard) {
       this.dashboardSockets.add(ws);
-      // Immediately send current system snapshot to newly connected dashboard
       ws.send(JSON.stringify({
         type: 'snapshot',
         payload: {
@@ -109,14 +93,10 @@ export class IntegrityServer {
     });
   }
 
-  /**
-   * Process parsed WebSocket messages.
-   */
   async handleMessage(msg, ws, setStudentId) {
     const { type, payload } = msg;
 
     switch (type) {
-      // 1. Invigilator Dashboard Subscription
       case 'dashboard:subscribe': {
         this.dashboardSockets.add(ws);
         ws.send(JSON.stringify({
@@ -130,7 +110,6 @@ export class IntegrityServer {
         break;
       }
 
-      // 2. Candidate Registration
       case 'candidate:register': {
         const student = this.registerStudent(payload, ws);
         setStudentId(student.studentId);
@@ -141,21 +120,18 @@ export class IntegrityServer {
         break;
       }
 
-      // 3. Live Telemetry Update from Candidate App
       case 'candidate:telemetry': {
         const updated = await this.updateTelemetry(payload.studentId, payload);
         if (updated) setStudentId(payload.studentId);
         break;
       }
 
-      // 4. Violation Recorded by Candidate App
       case 'candidate:violation': {
         const updated = await this.recordViolation(payload.studentId, payload);
         if (updated) setStudentId(payload.studentId);
         break;
       }
 
-      // 5. Heartbeat Ping from Candidate App
       case 'candidate:heartbeat': {
         const student = this.students.get(payload.studentId);
         if (student) {
@@ -168,7 +144,6 @@ export class IntegrityServer {
         break;
       }
 
-      // 6. Invigilator Manual Action (Lock, Unlock, Message, Screenshot)
       case 'invigilator:action': {
         const result = await this.triggerAction(payload.studentId, payload.action, payload.options);
         ws.send(JSON.stringify({
@@ -178,7 +153,6 @@ export class IntegrityServer {
         break;
       }
 
-      // 7. Update Student Machine Mapping (Hostname / IP)
       case 'invigilator:update_mapping': {
         const updated = this.updateStudentMapping(payload.studentId, payload.mapping);
         ws.send(JSON.stringify({
@@ -188,7 +162,6 @@ export class IntegrityServer {
         break;
       }
 
-      // 8. Update Auto-Rules Config
       case 'invigilator:update_rules': {
         const newRules = this.veyonBridge.updateRules(payload);
         this.broadcastToDashboards('rules:updated', newRules);
@@ -200,9 +173,6 @@ export class IntegrityServer {
     }
   }
 
-  /**
-   * Register or restore a student session.
-   */
   registerStudent(data = {}, socket = null) {
     const studentId = data.studentId || `STU-${Math.floor(100 + Math.random() * 900)}`;
     const studentName = data.studentName || `Student ${studentId.split('-')[1] || studentId}`;
@@ -244,9 +214,6 @@ export class IntegrityServer {
     return record;
   }
 
-  /**
-   * Update student telemetry metrics and evaluate auto-rules.
-   */
   async updateTelemetry(studentId, telemetry = {}) {
     const student = this.students.get(studentId);
     if (!student) return null;
@@ -267,16 +234,12 @@ export class IntegrityServer {
     if (telemetry.focused !== undefined) student.focused = telemetry.focused;
     if (telemetry.fullscreen !== undefined) student.fullscreen = telemetry.fullscreen;
 
-    // Evaluate Auto-Rules (Approach A)
     await this.evaluateRulesForStudent(student);
 
     this.broadcastToDashboards('student:telemetry', student);
     return student;
   }
 
-  /**
-   * Record a violation sent by candidate app and evaluate auto-rules.
-   */
   async recordViolation(studentId, violationData = {}) {
     const student = this.students.get(studentId);
     if (!student) return null;
@@ -302,7 +265,6 @@ export class IntegrityServer {
       student.scoreHistory.push({ time: now, score: violationData.fairnessScore });
     }
 
-    // Evaluate Auto-Rules on violation
     await this.evaluateRulesForStudent(student);
 
     this.broadcastToDashboards('student:violation', {
@@ -314,9 +276,6 @@ export class IntegrityServer {
     return student;
   }
 
-  /**
-   * Evaluates auto-rules against a student using VeyonBridge.
-   */
   async evaluateRulesForStudent(student) {
     const triggered = await this.veyonBridge.evaluateAutoRules(student, {
       onLock: (s, msg) => {
@@ -351,9 +310,6 @@ export class IntegrityServer {
     return triggered;
   }
 
-  /**
-   * Trigger an action (lock, unlock, message, screenshot) from invigilator or API.
-   */
   async triggerAction(studentId, action, options = {}) {
     const student = this.students.get(studentId);
     if (!student) {
@@ -428,9 +384,6 @@ export class IntegrityServer {
     };
   }
 
-  /**
-   * Update student computer identity mapping (hostname / IP).
-   */
   updateStudentMapping(studentId, mapping = {}) {
     const student = this.students.get(studentId);
     if (!student) return null;
@@ -442,9 +395,6 @@ export class IntegrityServer {
     return student;
   }
 
-  /**
-   * Broadcast message to all connected invigilator dashboards.
-   */
   broadcastToDashboards(type, payload) {
     const raw = JSON.stringify({ type, payload });
     for (const ws of this.dashboardSockets) {
@@ -454,9 +404,6 @@ export class IntegrityServer {
     }
   }
 
-  /**
-   * Send control packet to a specific candidate app.
-   */
   sendToCandidate(studentId, data = {}) {
     const ws = this.candidateSockets.get(studentId);
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -466,9 +413,6 @@ export class IntegrityServer {
     return false;
   }
 
-  /**
-   * Check heartbeat timestamps and mark inactive students offline.
-   */
   checkStudentHeartbeats() {
     const now = Date.now();
     for (const [studentId, student] of this.students.entries()) {
@@ -479,10 +423,6 @@ export class IntegrityServer {
     }
   }
 
-  /**
-   * Create or update a simulated student.
-   * Super useful for testing without needing multiple physical PCs.
-   */
   simulateStudent(custom = {}) {
     const idNum = Math.floor(10 + Math.random() * 90);
     const defaultData = {
@@ -503,9 +443,6 @@ export class IntegrityServer {
     return student;
   }
 
-  /**
-   * Reset / clear all students (for testing).
-   */
   clear() {
     this.students.clear();
     this.candidateSockets.clear();
@@ -516,9 +453,6 @@ export class IntegrityServer {
     });
   }
 
-  /**
-   * Stop background timers and close all sockets.
-   */
   destroy() {
     if (this.heartbeatTimer) {
       clearInterval(this.heartbeatTimer);
