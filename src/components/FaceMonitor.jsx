@@ -1,8 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { FilesetResolver, FaceDetector, ObjectDetector, FaceLandmarker } from '@mediapipe/tasks-vision';
 
-// MediaPipe assets. Loaded from CDN for zero-setup (needs internet on first run;
-// files are then HTTP-cached). See the guide for an offline/local option.
 const WASM_PATH =
   'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.20/wasm';
 const MODEL_URL =
@@ -13,7 +11,6 @@ const LANDMARK_MODEL_URL =
   'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 
 async function createDetector(vision) {
-  // Try GPU first; some Electron/GPU combos fail, so fall back to CPU.
   try {
     return await FaceDetector.createFromOptions(vision, {
       baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
@@ -88,13 +85,11 @@ function analyzeGaze(landmarks) {
   const lInner = landmarks[362];
   const lIris = landmarks[473];
 
-  // Horizontal gaze ratio for right eye (normalized x)
   const rMinX = Math.min(rOuter.x, rInner.x);
   const rMaxX = Math.max(rOuter.x, rInner.x);
   const rWidth = rMaxX - rMinX || 0.001;
   const rRatioH = (rIris.x - rMinX) / rWidth;
 
-  // Horizontal gaze ratio for left eye
   const lMinX = Math.min(lOuter.x, lInner.x);
   const lMaxX = Math.max(lOuter.x, lInner.x);
   const lWidth = lMaxX - lMinX || 0.001;
@@ -102,7 +97,6 @@ function analyzeGaze(landmarks) {
 
   const avgRatioH = (rRatioH + lRatioH) / 2;
 
-  // Vertical gaze ratio
   const rTop = landmarks[159];
   const rBottom = landmarks[145];
   const rMinY = Math.min(rTop.y, rBottom.y);
@@ -119,7 +113,6 @@ function analyzeGaze(landmarks) {
 
   const avgRatioV = (rRatioV + lRatioV) / 2;
 
-  // Nose / Head turn ratio
   const nose = landmarks[1];
   const rCheek = landmarks[234];
   const lCheek = landmarks[454];
@@ -168,9 +161,8 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // 1) Draw Face Detections
       const faceCount = faceDetections?.length || 0;
-      const faceColor = faceCount > 1 ? '#ef4444' : '#22c55e'; // Red for multiple faces, Green for single face
+      const faceColor = faceCount > 1 ? '#ef4444' : '#22c55e';
       
       ctx.lineWidth = 3;
       ctx.font = 'bold 14px sans-serif';
@@ -189,7 +181,6 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
         ctx.fillText(label, b.originX, b.originY - 6);
       });
 
-      // 2) Draw Iris Points
       if (landmarksList && landmarksList.length > 0) {
         const primaryLandmarks = landmarksList[0];
         const gazeColor = gazeInfo.isLookingAway ? '#ef4444' : '#22c55e';
@@ -205,7 +196,6 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
         });
       }
 
-      // 3) Draw Obstacle Detections
       (obstacleDetections || []).forEach((d) => {
         const categoryRaw = d.categories?.[0]?.categoryName || d.categories?.[0]?.displayName;
         if (!categoryRaw) return;
@@ -214,7 +204,6 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
         const score = d.categories?.[0]?.score || 0;
         const b = d.boundingBox;
 
-        // Draw obstacle bounding box in Red
         ctx.strokeStyle = '#ef4444';
         ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
         ctx.lineWidth = 3;
@@ -232,7 +221,6 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
       try {
         onCameraStatus?.('idle');
 
-        // 1) Load MediaPipe vision fileset + face detector + object detector + landmarker.
         const vision = await FilesetResolver.forVisionTasks(WASM_PATH);
         if (cancelled) return;
         detectorRef.current = await createDetector(vision);
@@ -242,7 +230,6 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
         landmarkerRef.current = await createLandmarker(vision);
         if (cancelled) return;
 
-        // 2) Start the webcam.
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 640, height: 480, facingMode: 'user' },
           audio: false,
@@ -257,7 +244,6 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
         await video.play();
         onCameraStatus?.('running');
 
-        // 3) Per-frame detection loop.
         const loop = () => {
           if (cancelled) return;
           const v = videoRef.current;
@@ -290,7 +276,6 @@ export default function FaceMonitor({ onCameraStatus, onFaceStatus, onDetectionU
                 }
               }
 
-              // Obstacles = any detected object except candidate/person
               const obstacleDetections = objectDetections.filter(d => {
                 const catName = d.categories?.[0]?.categoryName || d.categories?.[0]?.displayName;
                 return catName && catName.toLowerCase().trim() !== 'person';

@@ -1,4 +1,3 @@
-// Read-only dashboard: Camera / Face / Focus / Fullscreen + violations feed.
 
 function StatusCard({ label, value, tone }) {
   return (
