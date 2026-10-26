@@ -4,10 +4,8 @@ import FaceMonitor from './components/FaceMonitor.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import { useWindowEvents } from './hooks/useWindowEvents.js';
 
-// Default assessment URL loaded on startup.
 const DEFAULT_URL = 'https://google.com';
 
-// Simple incrementing ids for log rows.
 let violationId = 0;
 let urlLogId = 0;
 
@@ -15,14 +13,13 @@ export default function App() {
   const [urlInput, setUrlInput] = useState(DEFAULT_URL);
   const [activeUrl, setActiveUrl] = useState(DEFAULT_URL);
 
-  // Every URL loaded into the assessment frame, newest first.
   const [urlLogs, setUrlLogs] = useState(() => [
     { id: ++urlLogId, time: new Date().toLocaleTimeString(), url: DEFAULT_URL },
   ]);
 
-  const [cameraStatus, setCameraStatus] = useState('idle'); // idle | running | error
+  const [cameraStatus, setCameraStatus] = useState('idle');
   const [cameraError, setCameraError] = useState('');
-  const [faceDetected, setFaceDetected] = useState(null);   // null=unknown, true, false
+  const [faceDetected, setFaceDetected] = useState(null);
 
   const [focused, setFocused] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
@@ -37,7 +34,6 @@ export default function App() {
     );
   }, []);
 
-  // ----- Phase 3: OS window events from the main process -----
   useWindowEvents(
     useCallback(
       (data) => {
@@ -69,7 +65,6 @@ export default function App() {
     )
   );
 
-  // ----- Phase 2: detection status & violation debouncing -----
   const noFaceSince = useRef(null);
   const lastNoFaceViolation = useRef(0);
   const multipleFacesSince = useRef(null);
@@ -81,8 +76,8 @@ export default function App() {
   const currentGazeDirection = useRef('Center');
   const [gazeState, setGazeState] = useState({ isLookingAway: false, direction: 'Center' });
 
-  const obstacleSince = useRef({}); // category -> timestamp
-  const lastObstacleViolation = useRef({});   // category -> timestamp
+  const obstacleSince = useRef({});
+  const lastObstacleViolation = useRef({});
   const [obstaclesCount, setObstaclesCount] = useState(0);
 
   const handleFaceStatus = useCallback((isFace) => {
@@ -90,7 +85,6 @@ export default function App() {
   }, []);
 
   const handleDetectionUpdate = useCallback((data) => {
-    // Handle both object format and direct face count
     const faceCount = typeof data === 'object' ? data.faceCount : data;
     const detectedObstacles = typeof data === 'object' ? (data.detectedObstacles || []) : [];
     const isLookingAway = typeof data === 'object' ? !!data.isLookingAway : false;
@@ -104,38 +98,32 @@ export default function App() {
 
     const now = Date.now();
 
-    // -- No face --
     if (faceCount > 0) {
       noFaceSince.current = null;
     } else if (noFaceSince.current == null) {
       noFaceSince.current = now;
     }
 
-    // -- Multiple faces --
     if (faceCount <= 1) {
       multipleFacesSince.current = null;
     } else if (multipleFacesSince.current == null) {
       multipleFacesSince.current = now;
     }
 
-    // -- Eye Gaze / Looking Away --
     if (!isLookingAway) {
       gazeAwaySince.current = null;
     } else if (gazeAwaySince.current == null) {
       gazeAwaySince.current = now;
     }
 
-    // -- Obstacle Detections --
     const activeCategories = detectedObstacles.map(obj => obj.category);
     
-    // Clean up objects that are no longer present
     Object.keys(obstacleSince.current).forEach(cat => {
       if (!activeCategories.includes(cat)) {
         delete obstacleSince.current[cat];
       }
     });
 
-    // Mark start time for newly detected objects
     activeCategories.forEach(cat => {
       if (obstacleSince.current[cat] == null) {
         obstacleSince.current[cat] = now;
@@ -160,7 +148,6 @@ export default function App() {
     const interval = setInterval(() => {
       const now = Date.now();
 
-      // 1) No Face (3+ seconds, cooldown 5 seconds)
       if (
         noFaceSince.current &&
         now - noFaceSince.current > 3000 &&
@@ -170,7 +157,6 @@ export default function App() {
         addViolation('face', 'No face detected for 3+ seconds');
       }
 
-      // 2) Multiple People (3+ seconds, cooldown 5 seconds)
       if (
         multipleFacesSince.current &&
         now - multipleFacesSince.current > 3000 &&
@@ -181,7 +167,6 @@ export default function App() {
         addViolation('multiple-faces', `Multiple people detected (${count} faces) for 3+ seconds`);
       }
 
-      // 3) Eye Gaze / Looking Away (2+ seconds, cooldown 5 seconds)
       if (
         gazeAwaySince.current &&
         now - gazeAwaySince.current > 2000 &&
@@ -192,7 +177,6 @@ export default function App() {
         addViolation('gaze', `Looking away from screen (${dir}) for 2+ seconds`);
       }
 
-      // 4) Obstacle Detections (1+ second, cooldown 5 seconds per category)
       Object.keys(obstacleSince.current).forEach((cat) => {
         const detectedAt = obstacleSince.current[cat];
         const lastViolatedAt = lastObstacleViolation.current[cat] || 0;
@@ -220,7 +204,6 @@ export default function App() {
   const lastLoggedUrl = useRef('');
 
   const logUrl = useCallback((url) => {
-    // Skip consecutive duplicate URLs (redirects, re-fires)
     if (url === lastLoggedUrl.current) return;
     lastLoggedUrl.current = url;
     setUrlLogs((prev) =>
@@ -236,7 +219,6 @@ export default function App() {
     if (!next) return;
     if (!/^https?:\/\//i.test(next)) next = 'https://' + next;
     setActiveUrl(next);
-    // Don't logUrl here — the webview's did-navigate event will log it
   };
 
   return (
@@ -268,8 +250,8 @@ export default function App() {
         <SiteFrame
           url={activeUrl}
           onNavigate={(navUrl) => {
-            setUrlInput(navUrl);   // update the URL bar to reflect the current page
-            logUrl(navUrl);        // log every in-webview navigation
+            setUrlInput(navUrl);
+            logUrl(navUrl);
           }}
         />
         <aside className="sidebar">
