@@ -1,22 +1,4 @@
-/**
- * Proctoring strictness presets — the single source of truth for the
- * Level 1 / 2 / 3 / Custom spectrum described in docs/proctoring-levels.md.
- *
- * A preset is *data, not code*. It controls:
- *   - which violation types count at all (`enabled`)
- *   - the priority tier → auto-normalized weight (`priority`)
- *   - per-event deduction (`deduction`)
- *   - detection sensitivity (`dwellMs` — ms of continuous signal before a
- *     violation fires) and `cooldownMs` (min ms between repeat violations)
- *   - `grace` — number of forgiven events per type before deductions apply
- *   - `passThreshold` — fairness score below which a session is flagged
- *
- * The same module is imported by the candidate app (Vite/React) and by the
- * Express server (Node) so the preset a teacher picks at code-generation time
- * is the exact config the candidate's engine runs under.
- */
 
-// Preset identifiers, in display order.
 export const PRESET_IDS = ['level-1', 'level-2', 'level-3'];
 
 const BASE = 'Derived from mainstream online-proctoring practice (Unstop / standard remote-proctoring rubric); see docs/proctoring-levels.md';
@@ -79,7 +61,6 @@ export const PROCTORING_PRESETS = {
 
 export const DEFAULT_PRESET_ID = 'level-2';
 
-// Sane bounds used by validation for teacher-authored Custom profiles.
 export const PRESET_VALIDATION = {
   priorities: ['HIGH', 'MEDIUM_HIGH', 'MEDIUM', 'LOW'],
   deduction: { min: 0, max: 100 },
@@ -99,22 +80,11 @@ function clampInt(n, { min, max }) {
   return Math.min(max, Math.max(min, v));
 }
 
-/**
- * Look up a built-in preset by id. Returns a deep copy so callers can mutate
- * freely (e.g. as the starting point for a Custom profile).
- * Falls back to the default preset when id is unknown.
- */
 export function getPreset(id) {
   const preset = PROCTORING_PRESETS[id] || PROCTORING_PRESETS[DEFAULT_PRESET_ID];
   return JSON.parse(JSON.stringify(preset));
 }
 
-/**
- * Map a preset's `violations` block to the engine config shape:
- * only enabled types are included, and only the fields the engine reads.
- * Disabled types are omitted entirely so they neither count nor dilute the
- * auto-normalized weights.
- */
 export function engineConfigFromPreset(preset) {
   const out = {};
   for (const [type, v] of Object.entries(preset.violations || {})) {
@@ -125,12 +95,6 @@ export function engineConfigFromPreset(preset) {
   return out;
 }
 
-/**
- * Build a validated Custom preset. Starts from `baseId`'s preset (default
- * level-2) and applies `overrides` — either per-type fields under
- * `overrides.violations[type]` or top-level `grace` / `passThreshold`.
- * Returns { ok, preset?, errors? }.
- */
 export function buildCustomPreset(baseId = DEFAULT_PRESET_ID, overrides = {}) {
   const base = getPreset(baseId);
   const errors = [];
@@ -200,12 +164,6 @@ export function buildCustomPreset(baseId = DEFAULT_PRESET_ID, overrides = {}) {
   return { ok: true, preset: merged };
 }
 
-/**
- * Resolve any preset input — an id string ('level-2'), 'custom', or a full
- * preset object (as stored on a code / session) — into a usable preset object.
- * Custom objects are normalized through buildCustomPreset so a stored config
- * always validates.
- */
 export function resolvePreset(input) {
   if (input == null || input === DEFAULT_PRESET_ID) return getPreset(DEFAULT_PRESET_ID);
   if (typeof input === 'string') {
@@ -213,7 +171,7 @@ export function resolvePreset(input) {
     return getPreset(input);
   }
   if (isPlainObject(input)) {
-    if (input.violations) return input; // already-resolved stored config
+    if (input.violations) return input;
     const built = buildCustomPreset(input.baseId || DEFAULT_PRESET_ID, input);
     return built.ok ? built.preset : getPreset(DEFAULT_PRESET_ID);
   }

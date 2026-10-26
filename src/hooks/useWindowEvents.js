@@ -1,8 +1,5 @@
 import { useEffect, useRef } from 'react';
 
-// Subscribes to OS window events forwarded by the Electron main process.
-// Uses a ref so the underlying IPC listener is registered exactly once, even
-// though `handler` is recreated on renders.
 export function useWindowEvents(handler) {
   const handlerRef = useRef(handler);
   handlerRef.current = handler;

@@ -7,13 +7,10 @@ import { resolvePreset, buildCustomPreset, PROCTORING_PRESETS } from '../../src/
 
 export const codesRouter = express.Router();
 
-// Resolve the proctoring preset selection from a create request body into a
-// storable { preset_id, preset_config } pair, or an { error }.
 function resolvePresetInput(body) {
   const { preset, presetId, proctoringLevel, custom } = body || {};
   const requested = presetId || proctoringLevel || preset || 'level-2';
 
-  // A full custom profile object, or the 'custom' id carrying overrides.
   if (requested === 'custom' || (typeof requested === 'object' && requested !== null)) {
     const overrides = typeof requested === 'object' && requested !== null ? requested : (custom || {});
     const baseId = overrides.baseId || 'level-2';

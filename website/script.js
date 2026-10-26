@@ -18,10 +18,6 @@ function saveCachedHistory(list) {
 
 let lastGeneratedCode = '';
 
-// ── Proctoring preset editor (Custom) ───────────────────────────────────────
-// Local mirror of the built-in presets (kept in sync with
-// src/engine/proctoringPresets.js) so the website can offer a full custom
-// editor without importing app internals.
 const PRESET_DEFS = {
   'level-1': { name: 'Relaxed', passThreshold: 50, grace: 3, violations: {
     'multiple-faces': { enabled: true,  priority: 'HIGH', deduction: 15, dwellMs: 3000, cooldownMs: 5000 },
@@ -61,7 +57,6 @@ const PRIORITIES = ['HIGH', 'MEDIUM_HIGH', 'MEDIUM', 'LOW'];
 
 function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
 
-// Recompute fairness score for N events of each enabled type with grace.
 function simulatePreset(preset, events) {
   const types = Object.keys(preset.violations).filter(t => preset.violations[t].enabled);
   const totalPri = types.reduce((s, t) => s + (PRIORITY_VALUES[preset.violations[t].priority] || 1), 0);
@@ -175,7 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateWhatIf();
   });
   document.getElementById('whatifEvents').addEventListener('input', updateWhatIf);
-  // init global slider labels
   document.getElementById('customGrace').value = customPreset.grace;
   document.getElementById('customGraceVal').textContent = customPreset.grace;
   document.getElementById('customPass').value = customPreset.passThreshold;
@@ -220,7 +214,6 @@ async function generateCode() {
     const presetId = selectedPresetId();
     const body = { url: fullUrl };
     if (presetId === 'custom') {
-      // Send the fully-edited custom profile; the server validates each field.
       body.preset = {
         baseId: customPreset.baseId || 'level-2',
         grace: customPreset.grace,

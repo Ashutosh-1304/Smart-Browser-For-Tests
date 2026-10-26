@@ -36,7 +36,6 @@ body {
   height: 100vh;
 }
 
-/* ---------- Top bar ---------- */
 .topbar {
   display: flex;
   align-items: center;
@@ -115,7 +114,6 @@ button:hover {
   color: var(--text);
 }
 
-/* ---------- Body ---------- */
 .body {
   display: flex;
   flex: 1;
@@ -144,7 +142,6 @@ button:hover {
   overflow-y: auto;
 }
 
-/* ---------- Face monitor ---------- */
 .face-monitor {
   padding: 12px;
 }
@@ -164,10 +161,9 @@ button:hover {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transform: scaleX(-1); /* mirror like a selfie; both layers flip together */
+  transform: scaleX(-1);
 }
 
-/* ---------- Dashboard ---------- */
 .dashboard {
   padding: 12px;
   display: flex;
@@ -233,7 +229,6 @@ button:hover {
   font-size: 12px;
 }
 
-/* ---------- Violations ---------- */
 .violations {
   display: flex;
   flex-direction: column;
@@ -321,7 +316,6 @@ button:hover {
   color: var(--text);
 }
 
-/* ---------- URL logs ---------- */
 .url-logs {
   display: flex;
   flex-direction: column;
@@ -369,7 +363,6 @@ button:hover {
   word-break: break-all;
 }
 
-/* ---------- Fairness Score ---------- */
 .fairness-section {
   display: flex;
   gap: 14px;
@@ -380,7 +373,6 @@ button:hover {
   padding: 14px;
 }
 
-/* ── Gauge ── */
 .score-gauge {
   position: relative;
   width: 100px;
@@ -417,12 +409,10 @@ button:hover {
   margin-top: 3px;
 }
 
-/* Score gauge tone colors */
 .score-gauge.tone-good .gauge-value { color: var(--good); }
 .score-gauge.tone-warn .gauge-value { color: var(--warn); }
 .score-gauge.tone-bad  .gauge-value { color: var(--bad); }
 
-/* ── Breakdown list ── */
 .breakdown-list {
   flex: 1;
   display: flex;
@@ -470,7 +460,6 @@ button:hover {
   font-size: 11px;
 }
 
-/* Progress track */
 .breakdown-track {
   height: 5px;
   border-radius: 3px;
@@ -489,9 +478,6 @@ button:hover {
   padding-left: 2px;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   Code-Entry Landing Screen
-   ═══════════════════════════════════════════════════════════════════════════ */
 .code-entry-screen {
   width: 100%;
   height: 100vh;

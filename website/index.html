@@ -11,13 +11,11 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Animated background blobs -->
   <div class="bg-blob blob-1"></div>
   <div class="bg-blob blob-2"></div>
   <div class="bg-blob blob-3"></div>
 
   <div class="container">
-    <!-- Header -->
     <header class="header">
       <div class="logo">
         <div class="logo-icon">
@@ -40,12 +38,10 @@
       </div>
     </header>
 
-    <!-- Main Card -->
     <main class="card" id="mainCard">
       <h1 id="cardTitle">Generate Test Code</h1>
       <p class="card-subtitle" id="cardSubtitle">Paste your Google Forms (or any test) link below to generate a unique code for your students.</p>
 
-      <!-- Step 1: Enter Link -->
       <div class="step" id="step1">
         <label for="linkInput" class="input-label">Test Link</label>
         <div class="input-group">
@@ -98,7 +94,6 @@
         </div>
         <p class="preset-note" id="presetNote">The chosen level is stored with the code — every student who joins is proctored to the same standard.</p>
 
-        <!-- Custom preset editor: shown when "Custom" is selected -->
         <div class="custom-editor hidden" id="customEditor">
           <div class="custom-editor-head">
             <span>Fine-tune each violation. Start from a base level:</span>
@@ -125,7 +120,6 @@
             <input type="range" id="customPass" min="0" max="100" step="1" />
           </div>
 
-          <!-- What-if impact preview -->
           <div class="whatif-panel">
             <div class="whatif-head">
               <strong>What if…</strong>
@@ -150,7 +144,6 @@
         </button>
       </div>
 
-      <!-- Step 2: Show Code -->
       <div class="step hidden" id="step2">
         <p class="result-label">Your Test Code</p>
         <div class="code-display" id="codeDisplay">
@@ -192,7 +185,6 @@
       </div>
     </main>
 
-    <!-- Recent Codes Table -->
     <section class="history-card" id="historyCard">
       <h2>Recent Codes</h2>
       <div class="table-wrap" id="historyTable">

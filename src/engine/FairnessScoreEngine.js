@@ -1,24 +1,4 @@
-/**
- * FairnessScoreEngine
- *
- * A framework-agnostic scoring engine that computes a fairness score (0–100)
- * from violation data. Each violation type starts at 100 and is deducted by
- * a fixed amount per violation event. Types are grouped by priority tiers
- * whose weights auto-normalize so adding new types never requires manual
- * weight redistribution.
- *
- * Usage:
- *   const engine = new FairnessScoreEngine();
- *   engine.recordViolation('face');
- *   engine.recordViolation('focus');
- *   const { total, breakdown } = engine.getScore();
- */
 
-// ── Priority tiers ──────────────────────────────────────────────────────────
-// Values are tuned so auto-normalized weights match the desired distribution:
-//   HIGH         → 5/23 ≈ 0.22 each  (multiple-faces, face)
-//   MEDIUM_HIGH  → 4/23 ≈ 0.17       (gaze)
-//   MEDIUM       → 3/23 ≈ 0.13 each  (focus, fullscreen, obstacle)
 const PRIORITY_VALUES = {
   HIGH: 5,
   MEDIUM_HIGH: 4,
@@ -26,9 +6,6 @@ const PRIORITY_VALUES = {
   LOW: 1,
 };
 
-// ── Default violation type configuration ────────────────────────────────────
-// Add a new entry here to register a new violation type. Weights will
-// auto-recalculate — no other code changes needed.
 const DEFAULT_VIOLATION_CONFIG = {
   'multiple-faces': {
     priority: 'HIGH',
@@ -62,45 +39,24 @@ const DEFAULT_VIOLATION_CONFIG = {
   },
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 
 export { PRIORITY_VALUES, DEFAULT_VIOLATION_CONFIG };
 
 export default class FairnessScoreEngine {
-  /**
-   * @param {Object} [config] – Optional custom violation config.
-   *   Falls back to DEFAULT_VIOLATION_CONFIG when omitted.
-   *   Shape: { [type]: { priority: 'HIGH'|'MEDIUM'|'LOW', deduction: number, label: string } }
-   */
-  /**
-   * @param {Object} [config] – Optional custom violation config.
-   *   Falls back to DEFAULT_VIOLATION_CONFIG when omitted.
-   *   Shape: { [type]: { priority: 'HIGH'|'MEDIUM'|'LOW', deduction: number, label: string } }
-   * @param {Object} [options]
-   * @param {number} [options.grace=0] – Forgiven events per type before deductions apply.
-   */
   constructor(config, options = {}) {
     this._config = config || { ...DEFAULT_VIOLATION_CONFIG };
     this._grace = Math.max(0, Math.round(options.grace || 0));
-    this._graceUsed = {};    // type → forgiven events consumed
-    this._scores = {};       // type → current score (starts at 100)
-    this._counts = {};       // type → number of violations recorded
-    this._weights = {};      // type → auto-calculated weight (0–1)
-    this._history = [];      // ordered list of { type, timestamp, scoreBefore, scoreAfter, forgiven }
+    this._graceUsed = {};
+    this._scores = {};
+    this._counts = {};
+    this._weights = {};
+    this._history = [];
 
     this._initScores();
     this._computeWeights();
   }
 
-  // ── Public API ────────────────────────────────────────────────────────────
 
-  /**
-   * Record a violation of the given type.
-   * Deducts the configured amount from that type's score (clamped at 0).
-   *
-   * @param {string} type – Must match a key in the violation config.
-   * @returns {{ total: number, typeScore: number } | null} Updated scores, or null if type unknown.
-   */
   recordViolation(type) {
     const cfg = this._config[type];
     if (!cfg) {
@@ -111,7 +67,6 @@ export default class FairnessScoreEngine {
     const before = this._scores[type];
     this._counts[type] = (this._counts[type] || 0) + 1;
 
-    // Grace: the first N events per type are counted but forgiven (no deduction).
     const forgiven = (this._graceUsed[type] || 0) < this._grace;
     if (forgiven) {
       this._graceUsed[type] = (this._graceUsed[type] || 0) + 1;
@@ -133,15 +88,6 @@ export default class FairnessScoreEngine {
     };
   }
 
-  /**
-   * Get the full score report.
-   *
-   * @returns {{
-   *   total: number,
-   *   breakdown: Array<{ type: string, label: string, score: number, weight: number, weighted: number, violations: number, priority: string }>,
-   *   history: Array<{ type: string, timestamp: number, scoreBefore: number, scoreAfter: number }>
-   * }}
-   */
   getScore() {
     const breakdown = Object.keys(this._config).map((type) => {
       const cfg = this._config[type];
@@ -165,22 +111,12 @@ export default class FairnessScoreEngine {
     };
   }
 
-  /**
-   * Reset all scores back to 100 and clear history.
-   */
   reset() {
     this._initScores();
     this._graceUsed = {};
     this._history = [];
   }
 
-  /**
-   * Dynamically register a new violation type (or update an existing one).
-   * Weights auto-recalculate after this call.
-   *
-   * @param {string} type
-   * @param {{ priority: string, deduction: number, label: string }} cfg
-   */
   registerType(type, cfg) {
     this._config[type] = cfg;
     if (this._scores[type] === undefined) {
@@ -190,14 +126,10 @@ export default class FairnessScoreEngine {
     this._computeWeights();
   }
 
-  /**
-   * Get current config (read-only copy).
-   */
   getConfig() {
     return { ...this._config };
   }
 
-  // ── Private helpers ───────────────────────────────────────────────────────
 
   _initScores() {
     for (const type of Object.keys(this._config)) {

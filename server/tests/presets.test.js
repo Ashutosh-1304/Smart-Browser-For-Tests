@@ -10,7 +10,6 @@ import {
   DEFAULT_PRESET_ID,
 } from '../../src/engine/proctoringPresets.js';
 
-// A fixed violation sequence reused across preset assertions.
 const SEQUENCE = ['multiple-faces', 'face', 'gaze', 'focus', 'fullscreen', 'obstacle'];
 
 function runSequence(preset) {
@@ -30,14 +29,11 @@ test('three built-in presets plus custom are defined as data', () => {
 });
 
 test('level-2 reproduces the original default scoring behavior', () => {
-  // DEFAULT_VIOLATION_CONFIG: multiple-faces -20, face -15, gaze -12,
-  // focus/fullscreen -10, obstacle -8 with tiers 5,5,4,3,3,3 → weights /23.
   const preset = getPreset('level-2');
   const engine = new FairnessScoreEngine(engineConfigFromPreset(preset), { grace: 0 });
   for (const t of SEQUENCE) engine.recordViolation(t);
   const { total, breakdown } = engine.getScore();
 
-  // expected = sum((100 - deduction) * weight) with weights from priorities.
   const expected = (80 * 5 + 85 * 5 + 88 * 4 + 90 * 3 + 90 * 3 + 92 * 3) / 23;
   assert.ok(Math.abs(total - expected) < 0.05, `total ${total} != ${expected}`);
 
@@ -56,27 +52,24 @@ test('level-1 disables gaze and obstacle entirely', () => {
 test('disabled violations do not count and do not dilute weights', () => {
   const preset = getPreset('level-1');
   const { breakdown, total } = runSequence(preset);
-  // gaze + obstacle were omitted from the engine config — no breakdown rows.
   const types = breakdown.map(b => b.type);
   assert.ok(!types.includes('gaze'));
   assert.ok(!types.includes('obstacle'));
-  // Weights renormalize across only the 4 enabled types.
   const weightSum = breakdown.reduce((s, b) => s + b.weight, 0);
   assert.ok(Math.abs(weightSum - 1) < 1e-6);
-  // Level-1 grace=3 forgives the single event per type → no deduction yet.
   assert.equal(total, 100);
 });
 
 test('grace forgives the first N events per type', () => {
-  const preset = getPreset('level-1'); // grace = 3
+  const preset = getPreset('level-1');
   const engine = new FairnessScoreEngine(engineConfigFromPreset(preset), { grace: preset.grace });
-  engine.recordViolation('face'); // forgiven
-  engine.recordViolation('face'); // forgiven
-  engine.recordViolation('face'); // forgiven
+  engine.recordViolation('face');
+  engine.recordViolation('face');
+  engine.recordViolation('face');
   const before = engine.getScore().breakdown.find(b => b.type === 'face');
   assert.equal(before.score, 100);
-  assert.equal(before.violations, 3); // counted but forgiven
-  engine.recordViolation('face'); // now deducts
+  assert.equal(before.violations, 3);
+  engine.recordViolation('face');
   const after = engine.getScore().breakdown.find(b => b.type === 'face');
   assert.equal(after.score, 100 - preset.violations.face.deduction);
 });

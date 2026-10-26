@@ -34,15 +34,10 @@ export default function App() {
   const [codeError, setCodeError] = useState('');
   const [isValidatingCode, setIsValidatingCode] = useState(false);
 
-  // The proctoring strictness preset attached to the entered test code.
-  // Resolved once at start; defaults to Level 2 / Standard for direct access
-  // or codes that don't carry a preset.
   const [activePreset, setActivePreset] = useState(() => resolvePreset(DEFAULT_PRESET_ID));
   const activePresetRef = useRef(activePreset);
   activePresetRef.current = activePreset;
 
-  // Resolve the strictness preset for this session into state before the test
-  // starts so the engine + dwell timers run under the right level.
   const applyPreset = (rawPreset) => {
     const resolved = resolvePreset(rawPreset);
     setActivePreset(resolved);
@@ -294,13 +289,10 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
-      // Per-violation detection sensitivity (dwell + cooldown) comes from the
-      // active strictness preset. `enabled === false` types are skipped so a
-      // disabled violation neither fires nor counts.
       const pv = activePresetRef.current.violations || {};
       const setting = (type, fallbackDwell, fallbackCooldown) => {
         const cfg = pv[type];
-        if (cfg && cfg.enabled === false) return null; // disabled at this level
+        if (cfg && cfg.enabled === false) return null;
         return {
           dwell: cfg?.dwellMs ?? fallbackDwell,
           cooldown: cfg?.cooldownMs ?? fallbackCooldown,
