@@ -1,11 +1,3 @@
-// ---------------------------------------------------------------------------
-// Electron MAIN process (CommonJS -> .cjs because package.json has type:module)
-// Responsibilities:
-//   1. Create the app window (with webviewTag enabled so <webview> works).
-//   2. Auto-grant camera/mic permission requests.
-//   3. Watch OS-level window events (blur/minimize/fullscreen) and forward them
-//      to the React renderer over IPC — this is the Phase 3 monitoring backbone.
-// ---------------------------------------------------------------------------
 const { app, BrowserWindow, session, ipcMain } = require('electron');
 const path = require('path');
 
@@ -24,17 +16,14 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
-      // REQUIRED so the <webview> tag (used to embed the assessment site) works.
       webviewTag: true,
     },
   });
 
-  // Auto-grant camera/microphone so getUserMedia() works without a native prompt.
   session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
     const allowed = ['media', 'camera', 'microphone', 'audioCapture', 'videoCapture'];
     callback(allowed.includes(permission));
   });
-  // Some Electron versions also route through this check handler.
   session.defaultSession.setPermissionCheckHandler(() => true);
 
   if (isDev) {
@@ -49,7 +38,6 @@ function createWindow() {
     mainWindow.show();
   });
 
-  // --- Forward window events to the renderer (Phase 3) ---
   const send = (type) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('window-event', { type, at: Date.now() });
@@ -68,7 +56,6 @@ function createWindow() {
   });
 }
 
-// Let the renderer toggle real OS fullscreen (so we can demo "fullscreen exit").
 ipcMain.handle('toggle-fullscreen', (_event, enable) => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.setFullScreen(!!enable);
