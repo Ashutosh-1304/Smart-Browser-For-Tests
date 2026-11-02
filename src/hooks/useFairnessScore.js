@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import FairnessScoreEngine from '../engine/FairnessScoreEngine.js';
 
-export function useFairnessScore(config) {
+export function useFairnessScore(config, options) {
   const engineRef = useRef(null);
+  const configKeyRef = useRef(null);
 
-  if (!engineRef.current) {
-    engineRef.current = new FairnessScoreEngine(config);
+  const configKey = JSON.stringify([config, options]);
+  if (engineRef.current == null || configKeyRef.current !== configKey) {
+    configKeyRef.current = configKey;
+    engineRef.current = new FairnessScoreEngine(config, options);
   }
 
   const engine = engineRef.current;

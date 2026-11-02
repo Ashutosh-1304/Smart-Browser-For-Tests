@@ -43,8 +43,10 @@ const DEFAULT_VIOLATION_CONFIG = {
 export { PRIORITY_VALUES, DEFAULT_VIOLATION_CONFIG };
 
 export default class FairnessScoreEngine {
-  constructor(config) {
+  constructor(config, options = {}) {
     this._config = config || { ...DEFAULT_VIOLATION_CONFIG };
+    this._grace = Math.max(0, Math.round(options.grace || 0));
+    this._graceUsed = {};
     this._scores = {};
     this._counts = {};
     this._weights = {};
@@ -63,14 +65,21 @@ export default class FairnessScoreEngine {
     }
 
     const before = this._scores[type];
-    this._scores[type] = Math.max(0, before - cfg.deduction);
     this._counts[type] = (this._counts[type] || 0) + 1;
+
+    const forgiven = (this._graceUsed[type] || 0) < this._grace;
+    if (forgiven) {
+      this._graceUsed[type] = (this._graceUsed[type] || 0) + 1;
+    } else {
+      this._scores[type] = Math.max(0, before - cfg.deduction);
+    }
 
     this._history.push({
       type,
       timestamp: Date.now(),
       scoreBefore: before,
       scoreAfter: this._scores[type],
+      forgiven,
     });
 
     return {
@@ -104,6 +113,7 @@ export default class FairnessScoreEngine {
 
   reset() {
     this._initScores();
+    this._graceUsed = {};
     this._history = [];
   }
 
