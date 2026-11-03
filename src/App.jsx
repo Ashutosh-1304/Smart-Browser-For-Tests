@@ -409,33 +409,45 @@ export default function App() {
       <div className="code-entry-screen">
         <div className="code-entry-card">
           <div className="code-entry-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4.75 11.5L4.75 7.295C4.75 6.038 5.253 5.309 6.428 4.864L11.078 3.1C11.723 2.855 12.277 2.855 12.922 3.1L17.572 4.864C18.747 5.309 19.25 6.038 19.25 7.295L19.25 11.5C19.25 16.25 15.75 19.75 12 21.25C8.25 19.75 4.75 16.25 4.75 11.5Z" />
             </svg>
           </div>
+          <span className="code-entry-badge">Secure Assessment Browser</span>
           <h1 className="code-entry-title">Smart Browser</h1>
-          <p className="code-entry-subtitle">Secure Assessment Platform</p>
+          <p className="code-entry-subtitle">Enter your assessment code to start</p>
 
           <div className="code-entry-form">
-            <label className="code-entry-label">Enter Test Code</label>
-            <input
-              className="code-entry-input"
-              type="text"
-              value={testCode}
-              onChange={(e) => { setTestCode(e.target.value); setCodeError(''); }}
-              onKeyDown={(e) => e.key === 'Enter' && handleStartWithCode()}
-              placeholder="Paste your test code here..."
-              autoFocus
-              spellCheck={false}
-            />
-            {codeError && <p className="code-entry-error">{codeError}</p>}
+            <label className="code-entry-label">Assessment Access Code</label>
+            <div className="code-entry-input-wrap">
+              <input
+                className="code-entry-input"
+                type="text"
+                value={testCode}
+                onChange={(e) => { setTestCode(e.target.value); setCodeError(''); }}
+                onKeyDown={(e) => e.key === 'Enter' && handleStartWithCode()}
+                placeholder="e.g. 7X9K2M"
+                autoFocus
+                spellCheck={false}
+              />
+            </div>
+            {codeError && (
+              <div className="code-entry-error">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span>{codeError}</span>
+              </div>
+            )}
             <button 
               className="code-entry-btn" 
               onClick={handleStartWithCode}
               disabled={isValidatingCode}
               style={{ opacity: isValidatingCode ? 0.7 : 1, cursor: isValidatingCode ? 'wait' : 'pointer' }}
             >
-              {isValidatingCode ? 'Verifying...' : 'Start Test'}
+              {isValidatingCode ? 'Verifying...' : 'Start Assessment'}
             </button>
             <button className="code-entry-skip" onClick={handleStartWithoutCode} disabled={isValidatingCode}>
               Skip — enter URL manually
