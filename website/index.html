@@ -318,7 +318,180 @@
 
         <!-- Main Middle Grid: Code Generator & Assistant Overview -->
         <section class="dashboard-columns">
+          
+          <!-- Primary Generator Card -->
+          <div class="dash-card generator-card" id="generator">
+            <div class="card-head">
+              <div>
+                <h2 id="cardTitle">Generate Assessment Code</h2>
+                <p class="card-subtitle" id="cardSubtitle">Paste any Google Form, LMS, or quiz URL to issue a secure 6-character access gate.</p>
+              </div>
+              <div class="generator-badge">
+                <!-- NeatIcons: sparkles.svg -->
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                  <path d="M9.639 6.636C9.892 6.016 10.108 6.016 10.361 6.636L11.976 10.596C12.063 10.809 12.191 10.937 12.404 11.024L16.364 12.639C16.984 12.892 16.984 13.108 16.364 13.361L12.404 14.976C12.191 15.063 12.063 15.191 11.976 15.404L10.361 19.364C10.108 19.984 9.892 19.984 9.639 19.364L8.024 15.404C7.937 15.191 7.809 15.063 7.596 14.976L3.636 13.361C3.016 13.108 3.016 12.892 3.636 12.639L7.596 11.024C7.809 10.937 7.937 10.809 8.024 10.596L9.639 6.636Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>6-Char Access Gate</span>
+              </div>
+            </div>
 
+            <!-- Step 1: Input & Presets -->
+            <div class="step" id="step1">
+              <label for="linkInput" class="input-label">
+                <!-- NeatIcons: link.svg -->
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M9.5 7H7.75A5 5 0 0 0 7.75 17H9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M14.5 7H16.25A5 5 0 0 1 16.25 17H14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M8 12H16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Assessment Link
+              </label>
+              <div class="input-group">
+                <div class="input-icon">
+                  <!-- NeatIcons: link.svg -->
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M9.5 7H7.75A5 5 0 0 0 7.75 17H9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M14.5 7H16.25A5 5 0 0 1 16.25 17H14.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M8 12H16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <input
+                  type="url"
+                  id="linkInput"
+                  placeholder="https://docs.google.com/forms/d/e/... or any test URL"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+              </div>
+              <p class="error-text" id="errorText"></p>
+
+              <!-- Strictness Selector Cards -->
+              <label class="input-label" style="margin-top:18px;">
+                <!-- NeatIcons: sliders.svg -->
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <circle cx="15.5" cy="6" r="2.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="8.5" cy="12" r="2.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="14.5" cy="18" r="2.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M3.75 6H13.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M17.75 6H20.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M3.75 12H6.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M10.75 12H20.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M3.75 18H12.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M16.75 18H20.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Proctoring Strictness Level
+              </label>
+              <div class="preset-selector" id="presetSelector" role="radiogroup" aria-label="Proctoring strictness level">
+                <label class="preset-option">
+                  <input type="radio" name="preset" value="level-1" />
+                  <span class="preset-card">
+                    <span class="preset-header">
+                      <!-- NeatIcons: coffee.svg -->
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="preset-glyph">
+                        <path d="M4.25 8.5H16.25V14A4.5 4.5 0 0 1 11.75 18.5H8.75A4.5 4.5 0 0 1 4.25 14Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M16.25 10H17.5A2.5 2.5 0 0 1 17.5 15H16.25" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                        <path d="M8 3V5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M12.25 3V5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                      <span class="preset-name">Relaxed <em>L1</em></span>
+                    </span>
+                    <span class="preset-desc">Practice tests. Disables gaze &amp; objects, forgives first 3 events.</span>
+                  </span>
+                </label>
+
+                <label class="preset-option">
+                  <input type="radio" name="preset" value="level-2" checked />
+                  <span class="preset-card">
+                    <span class="preset-header">
+                      <!-- NeatIcons: target.svg -->
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="preset-glyph">
+                        <circle cx="12" cy="12" r="9.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                      </svg>
+                      <span class="preset-name">Standard <em>L2</em></span>
+                    </span>
+                    <span class="preset-desc">Graded exams. Balanced baseline deductions, forgives 1 event.</span>
+                  </span>
+                </label>
+
+                <label class="preset-option">
+                  <input type="radio" name="preset" value="level-3" />
+                  <span class="preset-card">
+                    <span class="preset-header">
+                      <!-- NeatIcons: lock.svg -->
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="preset-glyph">
+                        <path d="M4 14.55C4 11.365 5.365 10 8.55 10L15.45 10C18.635 10 20 11.365 20 14.55L20 16.45C20 19.635 18.635 21 15.45 21L8.55 21C5.365 21 4 19.635 4 16.45L4 14.55Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M8.5 10V6.5A3.5 3.5 0 0 1 15.5 6.5V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                      <span class="preset-name">Strict <em>L3</em></span>
+                    </span>
+                    <span class="preset-desc">High-stakes finals. Fast dwell timers, heavy penalties, zero grace.</span>
+                  </span>
+                </label>
+
+                <label class="preset-option">
+                  <input type="radio" name="preset" value="custom" />
+                  <span class="preset-card">
+                    <span class="preset-header">
+                      <!-- NeatIcons: sliders.svg -->
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="preset-glyph">
+                        <circle cx="15.5" cy="6" r="2.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="8.5" cy="12" r="2.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M3.75 6H13.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M10.75 12H20.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                      <span class="preset-name">Custom <em>⚙</em></span>
+                    </span>
+                    <span class="preset-desc">Tailor every violation rule, dwell timing, priority, and grace threshold.</span>
+                  </span>
+                </label>
+              </div>
+
+              <p class="preset-note" id="presetNote">
+                <!-- NeatIcons: info-circle.svg -->
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;">
+                  <circle cx="12" cy="12" r="9.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M12 11V16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="12" cy="7.5" r="0.75" fill="currentColor"/>
+                </svg>
+                The selected preset is bound to the test code — every student entering it is proctored uniformly.
+              </p>
+
+              <!-- Custom Editor Panel -->
+              <div class="custom-editor hidden" id="customEditor">
+                <div class="custom-editor-head">
+                  <span>Fine-tune violation rules. Base preset:</span>
+                  <select id="customBase" class="custom-base-select">
+                    <option value="level-1">Level 1 — Relaxed</option>
+                    <option value="level-2" selected>Level 2 — Standard</option>
+                    <option value="level-3">Level 3 — Strict</option>
+                  </select>
+                </div>
+                <div id="customViolations"></div>
+
+                <div class="custom-row global-row">
+                  <div class="custom-row-head">
+                    <span class="custom-type-name">Grace — forgiven events per category</span>
+                    <span class="custom-value" id="customGraceVal">1</span>
+                  </div>
+                  <input type="range" id="customGrace" min="0" max="10" step="1" />
+                </div>
+                <div class="custom-row global-row">
+                  <div class="custom-row-head">
+                    <span class="custom-type-name">Pass threshold — review flag below</span>
+                    <span class="custom-value" id="customPassVal">70</span>
+                  </div>
+                  <input type="range" id="customPass" min="0" max="100" step="1" />
+                </div>
+
+                <div class="whatif-panel">
+                  <div class="whatif-head">
+                    <strong>What-If Simulation Simulator</strong>
+                    <span>Test rule impact prior to code generation</span>
+
+        </section>
+      </main>
     </div>
   </div>
 </body>
