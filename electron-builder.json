@@ -1,0 +1,30 @@
+{
+  "appId": "com.smartbrowser.assessment",
+  "productName": "Smart Browser",
+  "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "package.json"
+  ],
+  "npmRebuild": false,
+  "mac": {
+    "target": ["dmg"],
+    "category": "public.app-category.education",
+    "identity": null
+  },
+  "win": {
+    "target": ["nsis", "portable"]
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Smart Browser"
+  }
+}
+

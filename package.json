@@ -12,7 +12,11 @@
     "dev": "concurrently -k -n SERVER,VITE,ELECTRON -c magenta,cyan,green \"npm:dev:server\" \"npm:dev:vite\" \"npm:dev:electron\"",
     "test:server": "DATABASE_PATH=:memory: node --test server/tests/api.test.js server/tests/presets.test.js",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "package:mac": "vite build && electron-builder --mac",
+    "package:win": "vite build && electron-builder --win",
+    "package:all": "vite build && electron-builder -mw",
+    "dist": "vite build && electron-builder -mw"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "0.10.20",
