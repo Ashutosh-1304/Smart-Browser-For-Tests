@@ -241,6 +241,83 @@
 
         <!-- Stat Metrics Grid (Actual Real Data) -->
         <section class="metrics-grid">
+          <div class="stat-card">
+            <div class="stat-card-head">
+              <span class="stat-label">Total Test Codes</span>
+              <div class="stat-icon-wrap">
+                <!-- NeatIcons: code.svg -->
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M7.5 7.25L3.853 10.897C3.081 11.669 3.081 12.331 3.853 13.103L7.5 16.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M16.5 7.25L20.147 10.897C20.919 11.669 20.919 12.331 20.147 13.103L16.5 16.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M14 4.5L10 19.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+            <div class="stat-value" id="statTotalCodes">0</div>
+            <div class="stat-footer">
+              <span class="stat-pill">Generated</span>
+              <span class="stat-sub">Across all courses</span>
+            </div>
+          </div>
+
+          <div class="stat-card stat-card-highlight">
+            <div class="stat-card-head">
+              <span class="stat-label">Active Access Gates</span>
+              <div class="stat-icon-wrap stat-icon-active">
+                <!-- NeatIcons: check-circle.svg -->
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M8 12.5L10.5 15L16 9.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+            <div class="stat-value" id="statActiveCodes">0</div>
+            <div class="stat-footer">
+              <span class="stat-pill stat-pill-active">Live &amp; Valid</span>
+              <span class="stat-sub">Ready for student joins</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-card-head">
+              <span class="stat-label">Candidate Joins</span>
+              <div class="stat-icon-wrap">
+                <!-- NeatIcons: user.svg -->
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="7.5" r="4.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M4.5 19.5C4.5 15.634 7.858 12.5 12 12.5C16.142 12.5 19.5 15.634 19.5 19.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+            <div class="stat-value" id="statTotalHits">0</div>
+            <div class="stat-footer">
+              <span class="stat-pill">Total Hits</span>
+              <span class="stat-sub">Access code resolutions</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-card-head">
+              <span class="stat-label">Active Strictness</span>
+              <div class="stat-icon-wrap">
+                <!-- NeatIcons: target.svg -->
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                </svg>
+              </div>
+            </div>
+            <div class="stat-value" id="statActivePreset">Standard</div>
+            <div class="stat-footer">
+              <span class="stat-pill" id="statPresetLevel">L2</span>
+              <span class="stat-sub">Presence &gt; Gaze &gt; Environment</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Main Middle Grid: Code Generator & Assistant Overview -->
+        <section class="dashboard-columns">
 
     </div>
   </div>
