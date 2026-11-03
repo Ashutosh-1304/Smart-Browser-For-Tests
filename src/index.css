@@ -528,10 +528,13 @@ button:hover {
 .code-entry-card {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   background: #16161A;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 24px;
-  padding: 44px 38px;
+  padding: 44px 38px 36px;
   max-width: 440px;
   width: 90%;
   text-align: center;
@@ -549,16 +552,25 @@ button:hover {
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+.code-entry-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 100%;
+  margin-bottom: 24px;
+}
+
 .code-entry-icon {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 72px;
-  height: 72px;
+  width: 68px;
+  height: 68px;
   border-radius: 20px;
   background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
   color: #0A0A0D;
-  margin-bottom: 18px;
+  margin: 0 auto 14px auto;
   box-shadow: 0 8px 30px rgba(245, 158, 11, 0.38);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -568,8 +580,11 @@ button:hover {
 }
 
 .code-entry-badge {
-  display: inline-block;
-  padding: 4px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px auto;
+  padding: 4px 14px;
   border-radius: 9999px;
   background: rgba(245, 158, 11, 0.12);
   border: 1px solid rgba(245, 158, 11, 0.28);
@@ -578,7 +593,6 @@ button:hover {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  margin-bottom: 12px;
 }
 
 .code-entry-title {
@@ -586,20 +600,23 @@ button:hover {
   font-weight: 800;
   letter-spacing: -0.025em;
   color: #FFFFFF;
-  margin-bottom: 6px;
+  margin: 0 0 6px 0;
+  text-align: center;
 }
 
 .code-entry-subtitle {
   font-size: 0.88rem;
   color: #A1A1AA;
-  margin-bottom: 28px;
+  margin: 0;
   font-weight: 500;
+  text-align: center;
 }
 
 .code-entry-form {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  width: 100%;
 }
 
 .code-entry-label {

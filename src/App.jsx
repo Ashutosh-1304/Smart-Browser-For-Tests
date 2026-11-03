@@ -408,14 +408,16 @@ export default function App() {
     return (
       <div className="code-entry-screen">
         <div className="code-entry-card">
-          <div className="code-entry-icon">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4.75 11.5L4.75 7.295C4.75 6.038 5.253 5.309 6.428 4.864L11.078 3.1C11.723 2.855 12.277 2.855 12.922 3.1L17.572 4.864C18.747 5.309 19.25 6.038 19.25 7.295L19.25 11.5C19.25 16.25 15.75 19.75 12 21.25C8.25 19.75 4.75 16.25 4.75 11.5Z" />
-            </svg>
+          <div className="code-entry-header">
+            <div className="code-entry-icon">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4.75 11.5L4.75 7.295C4.75 6.038 5.253 5.309 6.428 4.864L11.078 3.1C11.723 2.855 12.277 2.855 12.922 3.1L17.572 4.864C18.747 5.309 19.25 6.038 19.25 7.295L19.25 11.5C19.25 16.25 15.75 19.75 12 21.25C8.25 19.75 4.75 16.25 4.75 11.5Z" />
+              </svg>
+            </div>
+            <span className="code-entry-badge">Secure Assessment Browser</span>
+            <h1 className="code-entry-title">Smart Browser</h1>
+            <p className="code-entry-subtitle">Enter your assessment code to start</p>
           </div>
-          <span className="code-entry-badge">Secure Assessment Browser</span>
-          <h1 className="code-entry-title">Smart Browser</h1>
-          <p className="code-entry-subtitle">Enter your assessment code to start</p>
 
           <div className="code-entry-form">
             <label className="code-entry-label">Assessment Access Code</label>
