@@ -1829,3 +1829,38 @@ body[data-theme="dark"] .preset-chip {
 }
 
 /* ── Responsive Queries ─────────────────────────────────────────────────────── */
+@media (max-width: 1180px) {
+  .dashboard-columns {
+    grid-template-columns: 1fr;
+  }
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 860px) {
+  body {
+    padding: 12px 10px;
+  }
+  .dashboard-shell {
+    border-radius: 18px;
+  }
+  .app-rail {
+    display: none;
+  }
+  .topbar-nav {
+    display: none;
+  }
+  .app-workspace {
+    padding: 20px 16px;
+  }
+  .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  .preset-selector {
+    grid-template-columns: 1fr;
+  }
+  .code-display span {
+    font-size: 2.2rem;
+  }
+}
