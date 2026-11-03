@@ -651,9 +651,60 @@
 
         <!-- Bottom Table: Recent Assessment Code History -->
         <section class="dash-card table-section" id="history">
+          <div class="table-section-head">
+            <div class="table-title-group">
+              <div class="table-icon-wrap">
+                <!-- NeatIcons: clock.svg -->
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M12 7L12 11.564C12 11.869 12.111 12.069 12.371 12.228L15.25 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <h2>Recent Assessment Codes</h2>
+              <span class="count-badge" id="tableCountBadge">0 Codes</span>
+            </div>
+
+            <div class="table-tools">
+              <div class="table-search-box">
+                <!-- NeatIcons: search.svg -->
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                  <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M15.6 15.6L20.5 20.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <input type="text" id="tableSearchInput" placeholder="Filter by code or link..." />
+              </div>
+              <div class="filter-dropdown-wrap">
+                <!-- NeatIcons: filter.svg -->
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                  <path d="M6.083 7.68C4.275 5.454 4.729 4.5 7.597 4.5L16.403 4.5C19.271 4.5 19.725 5.454 17.917 7.68L14.262 12.178C14.079 12.404 13.978 12.695 13.978 12.986L13.978 17.5C13.978 18.25 13.524 18.9 12.871 19.2L11.022 20.05C10.428 20.325 9.75 19.89 9.75 19.23L9.75 12.986C9.75 12.695 9.649 12.404 9.466 12.178L6.083 7.68Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <select id="statusFilterSelect">
+                  <option value="all">All Status</option>
+                  <option value="active">Active Only</option>
+                  <option value="revoked">Revoked Only</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap" id="historyTable">
+            <p class="empty-state">No codes generated yet.</p>
+          </div>
+        </section>
 
       </main>
     </div>
+
+    <!-- Footer Note -->
+    <footer class="dashboard-footer">
+      <p>&copy; 2026 Smart Browser &mdash; Secure Assessment Platform &bull; Teacher Control Portal</p>
+    </footer>
+
   </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast">Code copied to clipboard!</div>
+
+  <script src="script.js"></script>
 </body>
 </html>
