@@ -12,38 +12,57 @@ function loadCachedHistory() {
 function saveCachedHistory(list) {
   try {
     localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify(list));
-  } catch {
-  }
+  } catch {}
 }
 
 let lastGeneratedCode = '';
+let cachedCodes = [];
+let currentSearchQuery = '';
+let currentStatusFilter = 'all';
 
+/* ── Preset Strictness Configurations ─────────────────────────────────────── */
 const PRESET_DEFS = {
-  'level-1': { name: 'Relaxed', passThreshold: 50, grace: 3, violations: {
-    'multiple-faces': { enabled: true,  priority: 'HIGH', deduction: 15, dwellMs: 3000, cooldownMs: 5000 },
-    'face':           { enabled: true,  priority: 'HIGH', deduction: 8,  dwellMs: 5000, cooldownMs: 5000 },
-    'gaze':           { enabled: false, priority: 'MEDIUM_HIGH', deduction: 8, dwellMs: 1500, cooldownMs: 5000 },
-    'focus':          { enabled: true,  priority: 'MEDIUM', deduction: 5,  dwellMs: 2000, cooldownMs: 2000 },
-    'fullscreen':     { enabled: true,  priority: 'MEDIUM', deduction: 5,  dwellMs: 1000, cooldownMs: 5000 },
-    'obstacle':       { enabled: false, priority: 'MEDIUM', deduction: 10, dwellMs: 800,  cooldownMs: 5000 },
-  }},
-  'level-2': { name: 'Standard', passThreshold: 70, grace: 1, violations: {
-    'multiple-faces': { enabled: true, priority: 'HIGH',        deduction: 20, dwellMs: 3000, cooldownMs: 5000 },
-    'face':           { enabled: true, priority: 'HIGH',        deduction: 15, dwellMs: 3000, cooldownMs: 5000 },
-    'gaze':           { enabled: true, priority: 'MEDIUM_HIGH', deduction: 12, dwellMs: 1500, cooldownMs: 5000 },
-    'focus':          { enabled: true, priority: 'MEDIUM',      deduction: 10, dwellMs: 2000, cooldownMs: 2000 },
-    'fullscreen':     { enabled: true, priority: 'MEDIUM',      deduction: 10, dwellMs: 1000, cooldownMs: 5000 },
-    'obstacle':       { enabled: true, priority: 'MEDIUM',      deduction: 8,  dwellMs: 1000, cooldownMs: 5000 },
-  }},
-  'level-3': { name: 'Strict', passThreshold: 85, grace: 0, violations: {
-    'multiple-faces': { enabled: true, priority: 'HIGH',        deduction: 30, dwellMs: 2000, cooldownMs: 4000 },
-    'face':           { enabled: true, priority: 'HIGH',        deduction: 20, dwellMs: 2000, cooldownMs: 4000 },
-    'gaze':           { enabled: true, priority: 'MEDIUM_HIGH', deduction: 15, dwellMs: 1000, cooldownMs: 4000 },
-    'focus':          { enabled: true, priority: 'MEDIUM',      deduction: 20, dwellMs: 1500, cooldownMs: 1500 },
-    'fullscreen':     { enabled: true, priority: 'MEDIUM',      deduction: 20, dwellMs: 800,  cooldownMs: 4000 },
-    'obstacle':       { enabled: true, priority: 'MEDIUM',      deduction: 20, dwellMs: 500,  cooldownMs: 4000 },
-  }},
+  'level-1': {
+    name: 'Relaxed',
+    passThreshold: 50,
+    grace: 3,
+    violations: {
+      'multiple-faces': { enabled: true,  priority: 'HIGH',        deduction: 15, dwellMs: 3000, cooldownMs: 5000 },
+      'face':           { enabled: true,  priority: 'HIGH',        deduction: 8,  dwellMs: 5000, cooldownMs: 5000 },
+      'gaze':           { enabled: false, priority: 'MEDIUM_HIGH', deduction: 8,  dwellMs: 1500, cooldownMs: 5000 },
+      'focus':          { enabled: true,  priority: 'MEDIUM',      deduction: 5,  dwellMs: 2000, cooldownMs: 2000 },
+      'fullscreen':     { enabled: true,  priority: 'MEDIUM',      deduction: 5,  dwellMs: 1000, cooldownMs: 5000 },
+      'obstacle':       { enabled: false, priority: 'MEDIUM',      deduction: 10, dwellMs: 800,  cooldownMs: 5000 },
+    }
+  },
+  'level-2': {
+    name: 'Standard',
+    passThreshold: 70,
+    grace: 1,
+    violations: {
+      'multiple-faces': { enabled: true, priority: 'HIGH',        deduction: 20, dwellMs: 3000, cooldownMs: 5000 },
+      'face':           { enabled: true, priority: 'HIGH',        deduction: 15, dwellMs: 3000, cooldownMs: 5000 },
+      'gaze':           { enabled: true, priority: 'MEDIUM_HIGH', deduction: 12, dwellMs: 1500, cooldownMs: 5000 },
+      'focus':          { enabled: true, priority: 'MEDIUM',      deduction: 10, dwellMs: 2000, cooldownMs: 2000 },
+      'fullscreen':     { enabled: true, priority: 'MEDIUM',      deduction: 10, dwellMs: 1000, cooldownMs: 5000 },
+      'obstacle':       { enabled: true, priority: 'MEDIUM',      deduction: 8,  dwellMs: 1000, cooldownMs: 5000 },
+    }
+  },
+  'level-3': {
+    name: 'Strict',
+    passThreshold: 85,
+    grace: 0,
+    violations: {
+      'multiple-faces': { enabled: true, priority: 'HIGH',        deduction: 30, dwellMs: 2000, cooldownMs: 4000 },
+      'face':           { enabled: true, priority: 'HIGH',        deduction: 20, dwellMs: 2000, cooldownMs: 4000 },
+      'gaze':           { enabled: true, priority: 'MEDIUM_HIGH', deduction: 15, dwellMs: 1000, cooldownMs: 4000 },
+      'focus':          { enabled: true, priority: 'MEDIUM',      deduction: 20, dwellMs: 1500, cooldownMs: 1500 },
+      'fullscreen':     { enabled: true, priority: 'MEDIUM',      deduction: 20, dwellMs: 800,  cooldownMs: 4000 },
+      'obstacle':       { enabled: true, priority: 'MEDIUM',      deduction: 20, dwellMs: 500,  cooldownMs: 4000 },
+    }
+  },
 };
+
 const VIOLATION_META = {
   'multiple-faces': 'Multiple Faces',
   'face': 'No Face',
@@ -52,10 +71,13 @@ const VIOLATION_META = {
   'fullscreen': 'Fullscreen Exit',
   'obstacle': 'Object Detected',
 };
+
 const PRIORITY_VALUES = { HIGH: 5, MEDIUM_HIGH: 4, MEDIUM: 3, LOW: 1 };
 const PRIORITIES = ['HIGH', 'MEDIUM_HIGH', 'MEDIUM', 'LOW'];
 
-function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+function deepClone(o) {
+  return JSON.parse(JSON.stringify(o));
+}
 
 function simulatePreset(preset, events) {
   const types = Object.keys(preset.violations).filter(t => preset.violations[t].enabled);
@@ -63,7 +85,7 @@ function simulatePreset(preset, events) {
   let total = 0;
   const rows = types.map(t => {
     const v = preset.violations[t];
-    const weight = (PRIORITY_VALUES[v.priority] || 1) / totalPri;
+    const weight = (PRIORITY_VALUES[v.priority] || 1) / (totalPri || 1);
     const counted = Math.max(0, events - preset.grace);
     const score = Math.max(0, 100 - counted * v.deduction);
     total += score * weight;
@@ -77,6 +99,7 @@ customPreset.id = 'custom';
 
 function renderCustomEditor() {
   const container = document.getElementById('customViolations');
+  if (!container) return;
   container.innerHTML = '';
   for (const [type, meta] of Object.entries(VIOLATION_META)) {
     const v = customPreset.violations[type];
@@ -125,57 +148,86 @@ function onCustomInput(e) {
 }
 
 function updateWhatIf() {
-  const events = parseInt(document.getElementById('whatifEvents').value, 10);
-  document.getElementById('whatifEventsVal').textContent = events;
+  const simInput = document.getElementById('whatifEvents');
+  const simVal = document.getElementById('whatifEventsVal');
+  const resultContainer = document.getElementById('whatifResult');
+  if (!simInput || !resultContainer) return;
+
+  const events = parseInt(simInput.value, 10);
+  if (simVal) simVal.textContent = events;
   const { total, rows } = simulatePreset(customPreset, events);
   const flag = total < customPreset.passThreshold;
   const parts = rows.map(r => `${VIOLATION_META[r.t]} ${r.score}`).join(' · ');
-  document.getElementById('whatifResult').innerHTML =
+  resultContainer.innerHTML =
     `<span class="whatif-score ${flag ? 'flag' : 'ok'}">${Math.round(total)}</span>` +
     `<span class="whatif-flag">${flag ? `⚠ below ${customPreset.passThreshold} → flagged` : `✓ above ${customPreset.passThreshold} pass threshold`}</span>` +
     `<div class="whatif-detail">${parts}</div>`;
 }
 
 function selectedPresetId() {
-  return (document.querySelector('input[name="preset"]:checked') || {}).value || 'level-2';
+  const checked = document.querySelector('input[name="preset"]:checked');
+  return checked ? checked.value : 'level-2';
 }
 
 function syncCustomEditorVisibility() {
   const editor = document.getElementById('customEditor');
   const isCustom = selectedPresetId() === 'custom';
-  editor.classList.toggle('hidden', !isCustom);
-  if (isCustom) renderCustomEditor();
+  if (editor) {
+    editor.classList.toggle('hidden', !isCustom);
+    if (isCustom) renderCustomEditor();
+  }
+  updateActivePresetMetric();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('input[name="preset"]').forEach(r => r.addEventListener('change', syncCustomEditorVisibility));
-  document.getElementById('customBase').addEventListener('change', (e) => {
-    customPreset = deepClone(PRESET_DEFS[e.target.value]);
-    customPreset.id = 'custom';
-    customPreset.baseId = e.target.value;
-    document.getElementById('customGrace').value = customPreset.grace;
-    document.getElementById('customGraceVal').textContent = customPreset.grace;
-    document.getElementById('customPass').value = customPreset.passThreshold;
-    document.getElementById('customPassVal').textContent = customPreset.passThreshold;
-    renderCustomEditor();
-  });
-  document.getElementById('customGrace').addEventListener('input', (e) => {
-    customPreset.grace = parseInt(e.target.value, 10);
-    document.getElementById('customGraceVal').textContent = customPreset.grace;
-    updateWhatIf();
-  });
-  document.getElementById('customPass').addEventListener('input', (e) => {
-    customPreset.passThreshold = parseInt(e.target.value, 10);
-    document.getElementById('customPassVal').textContent = customPreset.passThreshold;
-    updateWhatIf();
-  });
-  document.getElementById('whatifEvents').addEventListener('input', updateWhatIf);
-  document.getElementById('customGrace').value = customPreset.grace;
-  document.getElementById('customGraceVal').textContent = customPreset.grace;
-  document.getElementById('customPass').value = customPreset.passThreshold;
-  document.getElementById('customPassVal').textContent = customPreset.passThreshold;
-});
+function updateActivePresetMetric() {
+  const presetId = selectedPresetId();
+  const nameEl = document.getElementById('statActivePreset');
+  const levelEl = document.getElementById('statPresetLevel');
 
+  const meta = {
+    'level-1': { name: 'Relaxed', badge: 'L1' },
+    'level-2': { name: 'Standard', badge: 'L2' },
+    'level-3': { name: 'Strict', badge: 'L3' },
+    'custom':  { name: 'Custom', badge: '⚙ Custom' }
+  }[presetId] || { name: 'Standard', badge: 'L2' };
+
+  if (nameEl) nameEl.textContent = meta.name;
+  if (levelEl) levelEl.textContent = meta.badge;
+}
+
+/* ── Dynamic Time-Based Greeting ─────────────────────────────────────────── */
+function updateDynamicGreeting() {
+  const greetingEl = document.getElementById('dynamicGreeting');
+  if (!greetingEl) return;
+  const hour = new Date().getHours();
+  let text = 'Good morning, Professor';
+  if (hour >= 12 && hour < 17) {
+    text = 'Good afternoon, Professor';
+  } else if (hour >= 17) {
+    text = 'Good evening, Professor';
+  }
+  greetingEl.textContent = text;
+}
+
+/* ── Real Stat Metrics Calculation ───────────────────────────────────────── */
+function updateMetrics(codes) {
+  const totalEl = document.getElementById('statTotalCodes');
+  const activeEl = document.getElementById('statActiveCodes');
+  const hitsEl = document.getElementById('statTotalHits');
+
+  const list = codes || [];
+  const total = list.length;
+  const active = list.filter(c => c.status === 'active').length;
+  const totalHits = list.reduce((sum, c) => sum + (c.hitCount || c.hit_count || 0), 0);
+
+  if (totalEl) totalEl.textContent = total.toLocaleString();
+  if (activeEl) activeEl.textContent = active.toLocaleString();
+  if (hitsEl) hitsEl.textContent = totalHits.toLocaleString();
+
+  updateActivePresetMetric();
+}
+
+/* ── Generate Test Code API Call ─────────────────────────────────────────── */
 async function generateCode() {
   const input = document.getElementById('linkInput');
   const errorText = document.getElementById('errorText');
@@ -207,7 +259,7 @@ async function generateCode() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin">
       <circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-linecap="round"/>
     </svg>
-    Generating...
+    Generating Code...
   `;
 
   try {
@@ -226,9 +278,7 @@ async function generateCode() {
 
     const response = await fetch(`${API_BASE_URL}/codes`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
 
@@ -251,28 +301,29 @@ async function generateCode() {
     document.getElementById('step1').classList.add('hidden');
     document.getElementById('step2').classList.remove('hidden');
     document.getElementById('cardTitle').textContent = 'Code Generated!';
-    document.getElementById('cardSubtitle').textContent =
-      'Your test code is ready. Share it with your students.';
+    document.getElementById('cardSubtitle').textContent = 'Your secure access gate is ready. Share it with your students.';
 
-    await renderHistory();
+    showToast(`Access code ${data.code} generated successfully!`);
+    await fetchAndRenderHistory();
   } catch (err) {
-    errorText.textContent =
-      'Cannot connect to the backend server. Please verify the server is running on http://localhost:3001.';
+    errorText.textContent = 'Cannot connect to backend server. Verify service is running on http://localhost:3001.';
   } finally {
     generateBtn.disabled = false;
     generateBtn.innerHTML = originalBtnText;
   }
 }
 
+/* ── Code Clipboard Actions ──────────────────────────────────────────────── */
 function copyCode() {
   const code = lastGeneratedCode;
   if (!code) return;
+  copySpecificCode(code);
+}
 
-  navigator.clipboard
-    .writeText(code)
-    .then(() => {
-      showToast('Code copied to clipboard!');
-    })
+function copySpecificCode(code) {
+  if (!code) return;
+  navigator.clipboard.writeText(code)
+    .then(() => showToast(`Code ${code} copied to clipboard!`))
     .catch(() => {
       const ta = document.createElement('textarea');
       ta.value = code;
@@ -280,7 +331,7 @@ function copyCode() {
       ta.select();
       document.execCommand('copy');
       document.body.removeChild(ta);
-      showToast('Code copied to clipboard!');
+      showToast(`Code ${code} copied to clipboard!`);
     });
 }
 
@@ -289,9 +340,8 @@ function resetForm() {
   document.getElementById('errorText').textContent = '';
   document.getElementById('step1').classList.remove('hidden');
   document.getElementById('step2').classList.add('hidden');
-  document.getElementById('cardTitle').textContent = 'Generate Test Code';
-  document.getElementById('cardSubtitle').textContent =
-    'Paste your Google Forms (or any test) link below to generate a unique code for your students.';
+  document.getElementById('cardTitle').textContent = 'Generate Assessment Code';
+  document.getElementById('cardSubtitle').textContent = 'Paste any Google Form, LMS, or quiz URL to issue a secure 6-character access gate.';
   document.getElementById('linkInput').focus();
 }
 
@@ -304,17 +354,40 @@ function showToast(msg) {
   }
   toast.textContent = msg;
   toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 2200);
+  setTimeout(() => toast.classList.remove('show'), 2400);
 }
 
-async function renderHistory() {
-  const container = document.getElementById('historyTable');
+/* ── Revoke Code Action ──────────────────────────────────────────────────── */
+async function revokeCode(code) {
+  if (!code) return;
+  if (!confirm(`Are you sure you want to revoke code "${code}"? Students entering this code will be rejected.`)) {
+    return;
+  }
 
+  try {
+    const res = await fetch(`${API_BASE_URL}/codes/${encodeURIComponent(code)}/revoke`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || 'Failed to revoke code.');
+      return;
+    }
+    showToast(`Code ${code} has been revoked.`);
+    await fetchAndRenderHistory();
+  } catch (err) {
+    showToast('Failed to revoke code: backend unreachable.');
+  }
+}
+
+/* ── History Data Fetching & Table Rendering ─────────────────────────────── */
+async function fetchAndRenderHistory() {
   let codes = [];
   let isOffline = false;
 
   try {
-    const res = await fetch(`${API_BASE_URL}/codes?limit=20`);
+    const res = await fetch(`${API_BASE_URL}/codes?limit=50`);
     if (res.ok) {
       codes = await res.json();
       saveCachedHistory(codes);
@@ -326,39 +399,257 @@ async function renderHistory() {
     isOffline = true;
   }
 
-  if (!codes || codes.length === 0) {
+  cachedCodes = codes || [];
+  updateMetrics(cachedCodes);
+  renderFilteredTable(isOffline);
+}
+
+function getFilteredCodes() {
+  const query = (currentSearchQuery || '').trim().toLowerCase();
+  const status = currentStatusFilter || 'all';
+
+  return cachedCodes.filter(item => {
+    const itemStatus = item.status || 'active';
+    const matchesStatus = status === 'all' || itemStatus === status;
+    if (!matchesStatus) return false;
+
+    if (!query) return true;
+    const codeMatch = (item.code || '').toLowerCase().includes(query);
+    const urlMatch = (item.url || item.target_url || '').toLowerCase().includes(query);
+    return codeMatch || urlMatch;
+  });
+}
+
+function renderFilteredTable(isOffline = false) {
+  const container = document.getElementById('historyTable');
+  const countBadge = document.getElementById('tableCountBadge');
+  if (!container) return;
+
+  const filtered = getFilteredCodes();
+
+  if (countBadge) {
+    if (currentSearchQuery || currentStatusFilter !== 'all') {
+      countBadge.textContent = `${filtered.length} of ${cachedCodes.length} Codes`;
+    } else {
+      countBadge.textContent = `${cachedCodes.length} Codes`;
+    }
+  }
+
+  if (!filtered || filtered.length === 0) {
     container.innerHTML = `
-      <p class="empty-state">
-        ${isOffline ? 'Offline — No cached codes found. Start server on :3001.' : 'No codes generated yet.'}
-      </p>
+      <div class="empty-state">
+        <p>${cachedCodes.length === 0 
+          ? (isOffline ? 'Offline — No cached codes found. Start server on :3001.' : 'No assessment codes generated yet.') 
+          : 'No codes match your search criteria.'}
+        </p>
+      </div>
     `;
     return;
   }
 
   let html = '';
   if (isOffline) {
-    html += '<p style="color:var(--warning,#f59e0b);font-size:0.78rem;margin-bottom:8px;">⚠️ Server unreachable — showing cached history.</p>';
+    html += '<p style="color:var(--warning, #D97706);font-size:0.78rem;padding:8px 16px;margin:0;">⚠️ Server unreachable — displaying locally cached codes.</p>';
   }
 
-  html += '<table><thead><tr><th>Code</th><th>Link</th><th>Level</th><th>Status</th><th>Created</th></tr></thead><tbody>';
-  codes.forEach((item) => {
-    const formattedDate = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '';
-    const statusColor = item.status === 'active' ? '#10b981' : item.status === 'revoked' ? '#ef4444' : '#f59e0b';
-    const presetLabel = { 'level-1': 'L1', 'level-2': 'L2', 'level-3': 'L3', 'custom': 'Custom' }[item.presetId] || 'L2';
+  html += `<table>
+    <thead>
+      <tr>
+        <th>Code</th>
+        <th>Assessment Link</th>
+        <th>Strictness</th>
+        <th>Status</th>
+        <th>Joins</th>
+        <th>Created</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  filtered.forEach(item => {
+    const formattedDate = item.createdAt ? new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+    const status = item.status || 'active';
+    const presetLabel = { 'level-1': 'Relaxed (L1)', 'level-2': 'Standard (L2)', 'level-3': 'Strict (L3)', 'custom': 'Custom' }[item.presetId] || 'L2';
+    const hits = item.hitCount || item.hit_count || 0;
+    const isActive = status === 'active';
 
     html += `<tr>
-      <td class="code-cell" title="${item.code}">${item.code}</td>
-      <td class="link-cell" title="${item.url}">${item.url}</td>
-      <td><span style="display:inline-block;padding:2px 8px;border-radius:8px;font-size:0.72rem;font-weight:700;background:rgba(56,189,248,0.12);color:#38bdf8">${presetLabel}</span></td>
-      <td><span style="display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.75rem;font-weight:600;background:rgba(255,255,255,0.06);color:${statusColor}">${item.status || 'active'}</span></td>
-      <td>${formattedDate}</td>
+      <td class="code-cell">
+        <span>${item.code}</span>
+      </td>
+      <td class="link-cell">
+        <a href="${item.url}" target="_blank" rel="noopener noreferrer" title="${item.url}">${item.url}</a>
+      </td>
+      <td>
+        <span class="preset-chip">${presetLabel}</span>
+      </td>
+      <td>
+        <span class="status-badge ${status}">${status}</span>
+      </td>
+      <td>
+        <strong>${hits}</strong>
+      </td>
+      <td>
+        <span style="color:var(--text-muted);font-size:0.8rem;">${formattedDate}</span>
+      </td>
+      <td>
+        <div class="table-btn-group">
+          <button class="table-btn" onclick="copySpecificCode('${item.code}')" title="Copy code">
+            <!-- NeatIcons: copy.svg -->
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+              <path d="M8.25 11.89C8.25 9.342 9.342 8.25 11.89 8.25L16.61 8.25C19.158 8.25 20.25 9.342 20.25 11.89L20.25 16.61C20.25 19.158 19.158 20.25 16.61 20.25L11.89 20.25C9.342 20.25 8.25 19.158 8.25 16.61L8.25 11.89Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M15.75 8.25L15.75 7.39C15.75 4.842 14.658 3.75 12.11 3.75L7.39 3.75C4.842 3.75 3.75 4.842 3.75 7.39L3.75 12.11C3.75 14.658 4.842 15.75 7.39 15.75L8.25 15.75" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+            Copy
+          </button>
+          ${isActive ? `
+            <button class="table-btn danger" onclick="revokeCode('${item.code}')" title="Revoke code access">
+              Revoke
+            </button>
+          ` : `
+            <span style="font-size:0.72rem;color:var(--danger);font-weight:600;padding:4px 6px;">Revoked</span>
+          `}
+        </div>
+      </td>
     </tr>`;
   });
-  html += '</tbody></table>';
+
+  html += `</tbody></table>`;
   container.innerHTML = html;
 }
 
+/* ── Real-time Search Synchronization ────────────────────────────────────── */
+function onSearchChanged(val) {
+  currentSearchQuery = val;
+  const topInput = document.getElementById('topSearchInput');
+  const tableInput = document.getElementById('tableSearchInput');
+  if (topInput && topInput.value !== val) topInput.value = val;
+  if (tableInput && tableInput.value !== val) tableInput.value = val;
+  renderFilteredTable();
+}
+
+/* ── Theme Switcher (Finexy Light / Midnight Dark) ────────────────────────── */
+function applyTheme(theme) {
+  document.body.setAttribute('data-theme', theme);
+  try {
+    localStorage.setItem('smartbrowser_theme', theme);
+  } catch {}
+  const btnLight = document.getElementById('btnThemeLight');
+  const btnDark = document.getElementById('btnThemeDark');
+  if (btnLight) btnLight.classList.toggle('active', theme === 'light');
+  if (btnDark) btnDark.classList.toggle('active', theme === 'dark');
+}
+
+function initTheme() {
+  let saved = 'light';
+  try {
+    saved = localStorage.getItem('smartbrowser_theme') || 'light';
+  } catch {}
+  applyTheme(saved);
+
+  const btnLight = document.getElementById('btnThemeLight');
+  const btnDark = document.getElementById('btnThemeDark');
+  if (btnLight) btnLight.addEventListener('click', () => applyTheme('light'));
+  if (btnDark) btnDark.addEventListener('click', () => applyTheme('dark'));
+}
+
+/* ── DOM Initialization ──────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
-  renderHistory();
-  document.getElementById('linkInput').focus();
+  initTheme();
+  updateDynamicGreeting();
+
+  // Preset radio buttons
+  document.querySelectorAll('input[name="preset"]').forEach(r => {
+    r.addEventListener('change', syncCustomEditorVisibility);
+  });
+
+  // Custom preset editor controls
+  const customBaseEl = document.getElementById('customBase');
+  if (customBaseEl) {
+    customBaseEl.addEventListener('change', (e) => {
+      customPreset = deepClone(PRESET_DEFS[e.target.value]);
+      customPreset.id = 'custom';
+      customPreset.baseId = e.target.value;
+      const graceEl = document.getElementById('customGrace');
+      const passEl = document.getElementById('customPass');
+      if (graceEl) {
+        graceEl.value = customPreset.grace;
+        document.getElementById('customGraceVal').textContent = customPreset.grace;
+      }
+      if (passEl) {
+        passEl.value = customPreset.passThreshold;
+        document.getElementById('customPassVal').textContent = customPreset.passThreshold;
+      }
+      renderCustomEditor();
+    });
+  }
+
+  const customGraceEl = document.getElementById('customGrace');
+  if (customGraceEl) {
+    customGraceEl.addEventListener('input', (e) => {
+      customPreset.grace = parseInt(e.target.value, 10);
+      document.getElementById('customGraceVal').textContent = customPreset.grace;
+      updateWhatIf();
+    });
+  }
+
+  const customPassEl = document.getElementById('customPass');
+  if (customPassEl) {
+    customPassEl.addEventListener('input', (e) => {
+      customPreset.passThreshold = parseInt(e.target.value, 10);
+      document.getElementById('customPassVal').textContent = customPreset.passThreshold;
+      updateWhatIf();
+    });
+  }
+
+  const whatifEl = document.getElementById('whatifEvents');
+  if (whatifEl) {
+    whatifEl.addEventListener('input', updateWhatIf);
+  }
+
+  // Search input listeners
+  const topSearch = document.getElementById('topSearchInput');
+  if (topSearch) {
+    topSearch.addEventListener('input', (e) => onSearchChanged(e.target.value));
+  }
+
+  const tableSearch = document.getElementById('tableSearchInput');
+  if (tableSearch) {
+    tableSearch.addEventListener('input', (e) => onSearchChanged(e.target.value));
+  }
+
+  // Status filter dropdown
+  const statusFilter = document.getElementById('statusFilterSelect');
+  if (statusFilter) {
+    statusFilter.addEventListener('change', (e) => {
+      currentStatusFilter = e.target.value;
+      renderFilteredTable();
+    });
+  }
+
+  // Navigation tab links
+  document.querySelectorAll('.topbar-nav .nav-tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+      const href = tab.getAttribute('href');
+      if (href && href.startsWith('#')) {
+        document.querySelectorAll('.topbar-nav .nav-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+      }
+    });
+  });
+
+  // Notification button toast
+  const notifBtn = document.getElementById('notificationBtn');
+  if (notifBtn) {
+    notifBtn.addEventListener('click', () => {
+      showToast('Live monitoring: WebSocket service is active on :3001');
+    });
+  }
+
+  // Fetch codes & initialize
+  fetchAndRenderHistory();
+
+  // Focus link input
+  const linkInput = document.getElementById('linkInput');
+  if (linkInput) linkInput.focus();
 });
