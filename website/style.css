@@ -218,3 +218,392 @@ body {
 }
 
 /* ── Topbar ─────────────────────────────────────────────────────────────────── */
+.app-topbar {
+  height: 70px;
+  padding: 0 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--card-border);
+  background: var(--card-bg);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.logo-box {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  border-radius: 11px;
+  color: #FFFFFF;
+  box-shadow: 0 4px 14px var(--c-yellow-glow);
+}
+
+.brand-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.brand-name {
+  font-size: 1.08rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.brand-tag {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--c-yellow);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Center Pill Nav (Finexy Style) */
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-muted);
+  padding: 5px;
+  border-radius: var(--radius-pill);
+}
+
+.nav-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--pill-inactive-text);
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
+}
+
+.nav-tab:hover {
+  color: var(--text-primary);
+}
+
+.nav-tab.active {
+  background: var(--pill-active-bg);
+  color: var(--pill-active-text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-weight: 700;
+}
+
+.nav-tab-invigilator {
+  color: var(--c-yellow);
+  font-weight: 700;
+}
+
+.nav-tab-invigilator:hover {
+  color: #B45309;
+}
+
+/* Right Profile & Utilities */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quick-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-muted);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  color: var(--text-muted);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.quick-search-box:focus-within {
+  border-color: var(--c-yellow);
+  box-shadow: 0 0 0 3px var(--c-yellow-glow);
+  color: var(--c-yellow);
+}
+
+.quick-search-box input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 0.82rem;
+  width: 140px;
+  transition: width 0.2s ease;
+}
+
+.quick-search-box input:focus {
+  width: 180px;
+}
+
+.quick-search-box input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Circular Topbar Icon Buttons (Notification and Theme Toggle) */
+.topbar-icon-btn {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--surface-muted);
+  border: 1px solid var(--card-border);
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.topbar-icon-btn:hover {
+  border-color: var(--c-yellow);
+  background: var(--surface-hover);
+  color: var(--c-yellow);
+  transform: translateY(-1px);
+}
+
+.badge-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c-yellow);
+  box-shadow: 0 0 6px var(--c-yellow);
+}
+
+/* Theme Toggle Button Icons */
+#topThemeToggle .icon-sun { display: none; }
+#topThemeToggle .icon-moon { display: block; color: var(--text-secondary); }
+
+[data-theme="dark"] #topThemeToggle .icon-sun { display: block; color: #FBBF24; }
+[data-theme="dark"] #topThemeToggle .icon-moon { display: none; }
+
+.user-profile-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px 4px 5px;
+  background: var(--surface-muted);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+}
+
+.avatar-circle {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #111827, #374151);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+}
+
+.user-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.user-role {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+/* ── Shell Body (Slim Rail + Main Workspace) ────────────────────────────────── */
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── Slim Left Rail (with Finexy Sun / Moon Toggle) ─────────────────────────── */
+.app-rail {
+  width: 66px;
+  border-right: 1px solid var(--card-border);
+  background: var(--card-bg);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0 20px;
+  flex-shrink: 0;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.rail-top, .rail-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Theme Toggle in rail */
+.rail-theme-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--surface-muted);
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  margin-bottom: 8px;
+  border: 1px solid var(--card-border);
+}
+
+.theme-icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-icon-btn:hover {
+  color: var(--text-primary);
+}
+
+.theme-icon-btn.active {
+  background: var(--card-bg);
+  color: var(--c-yellow);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.rail-item {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.rail-item:hover {
+  color: var(--text-primary);
+  background: var(--surface-muted);
+  transform: translateY(-1px);
+}
+
+.rail-item.active {
+  background: var(--pill-active-bg);
+  color: var(--pill-active-text);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.status-pill-item {
+  cursor: default;
+}
+
+.status-indicator-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+  animation: pulseDot 2.5s ease-in-out infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+/* ── Workspace ──────────────────────────────────────────────────────────────── */
+.app-workspace {
+  flex: 1;
+  padding: 28px 34px 34px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+/* Greeting Header Row */
+.workspace-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.greeting-box h1 {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.025em;
+  margin-bottom: 4px;
+}
+
+.greeting-box p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* Invigilator Pill Button */
+.btn-console-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 18px;
+  border-radius: var(--radius-pill);
+  background: var(--btn-secondary-bg);
+  border: 1px solid var(--btn-secondary-border);
+  color: var(--btn-secondary-text);
+  font-size: 0.84rem;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-console-pill:hover {
+  background: #1F2937;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px var(--c-yellow-glow);
+  color: #FFFFFF;
+}
+
+.btn-console-pill svg {
+  color: var(--c-yellow);
+}
+
+/* ── 4-Column Stat Metrics Grid (Finexy Style) ───────────────────────────────── */
