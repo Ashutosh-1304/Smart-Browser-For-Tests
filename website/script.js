@@ -528,16 +528,25 @@ function onSearchChanged(val) {
   renderFilteredTable();
 }
 
-/* ── Theme Switcher (Finexy Light / Midnight Dark) ────────────────────────── */
+/* ── Theme Switcher (Finexy Light / Matte Black Dark) ─────────────────────── */
 function applyTheme(theme) {
-  document.body.setAttribute('data-theme', theme);
+  const finalTheme = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', finalTheme);
+  document.body.setAttribute('data-theme', finalTheme);
   try {
-    localStorage.setItem('smartbrowser_theme', theme);
+    localStorage.setItem('smartbrowser_theme', finalTheme);
   } catch {}
+
+  const topToggle = document.getElementById('topThemeToggle');
+  if (topToggle) {
+    topToggle.classList.toggle('active', finalTheme === 'dark');
+    topToggle.setAttribute('title', finalTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode');
+  }
+
   const btnLight = document.getElementById('btnThemeLight');
   const btnDark = document.getElementById('btnThemeDark');
-  if (btnLight) btnLight.classList.toggle('active', theme === 'light');
-  if (btnDark) btnDark.classList.toggle('active', theme === 'dark');
+  if (btnLight) btnLight.classList.toggle('active', finalTheme === 'light');
+  if (btnDark) btnDark.classList.toggle('active', finalTheme === 'dark');
 }
 
 function initTheme() {
@@ -546,6 +555,14 @@ function initTheme() {
     saved = localStorage.getItem('smartbrowser_theme') || 'light';
   } catch {}
   applyTheme(saved);
+
+  const topToggle = document.getElementById('topThemeToggle');
+  if (topToggle) {
+    topToggle.addEventListener('click', () => {
+      const current = document.body.getAttribute('data-theme') || 'light';
+      applyTheme(current === 'light' ? 'dark' : 'light');
+    });
+  }
 
   const btnLight = document.getElementById('btnThemeLight');
   const btnDark = document.getElementById('btnThemeDark');
