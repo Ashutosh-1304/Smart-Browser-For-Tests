@@ -5,6 +5,7 @@ import Dashboard from './components/Dashboard.jsx';
 import { useWindowEvents } from './hooks/useWindowEvents.js';
 import { useFairnessScore } from './hooks/useFairnessScore.js';
 import { resolvePreset, engineConfigFromPreset, DEFAULT_PRESET_ID } from './engine/proctoringPresets.js';
+import { calculateNormalizedScore } from './engine/scoreNormalizer.js';
 
 function decodeTestCode(code) {
   const sep = code.indexOf('-');
@@ -31,6 +32,15 @@ let urlLogId = 0;
 export default function App() {
   const [started, setStarted] = useState(false);
   const [testCode, setTestCode] = useState('');
+  const [studentName, setStudentName] = useState('');
+  const [studentId, setStudentId] = useState('');
+  const [studentEmail, setStudentEmail] = useState('');
+  const [sessionStartTime, setSessionStartTime] = useState(null);
+  const [activeCodeData, setActiveCodeData] = useState(null);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [isSubmittingSession, setIsSubmittingSession] = useState(false);
+  const [studentRawScoreInput, setStudentRawScoreInput] = useState('');
+  const [completedSessionResult, setCompletedSessionResult] = useState(null);
   const [codeError, setCodeError] = useState('');
   const [isValidatingCode, setIsValidatingCode] = useState(false);
 
@@ -47,7 +57,7 @@ export default function App() {
   const handleStartWithCode = async () => {
     const trimmed = testCode.trim();
     if (!trimmed) {
-      setCodeError('Please enter a test code.');
+      setCodeError('Please enter an assessment code.');
       return;
     }
 
@@ -64,6 +74,8 @@ export default function App() {
           setUrlInput(data.url);
           setActiveUrl(data.url);
           setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: data.url }]);
+          setActiveCodeData(data);
+          setSessionStartTime(Date.now());
           setStarted(true);
           return;
         }
@@ -76,6 +88,8 @@ export default function App() {
             setUrlInput(legacyDecoded);
             setActiveUrl(legacyDecoded);
             setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: legacyDecoded }]);
+            setActiveCodeData({ code: trimmed, url: legacyDecoded, maxScore: 100, normalizationRule: 'multiplier' });
+            setSessionStartTime(Date.now());
             setStarted(true);
             return;
           } catch {
@@ -101,12 +115,14 @@ export default function App() {
           setUrlInput(legacyDecoded);
           setActiveUrl(legacyDecoded);
           setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: legacyDecoded }]);
+          setActiveCodeData({ code: trimmed, url: legacyDecoded, maxScore: 100, normalizationRule: 'multiplier' });
+          setSessionStartTime(Date.now());
           setStarted(true);
           return;
         } catch {
         }
       }
-      setCodeError('Cannot reach the assessment server. Please ensure the server is running on http://localhost:3001.');
+      setCodeError('Cannot reach assessment server. Ensure backend is running on http://localhost:3001.');
     } finally {
       setIsValidatingCode(false);
     }
@@ -114,6 +130,8 @@ export default function App() {
 
   const handleStartWithoutCode = () => {
     applyPreset(null);
+    setActiveCodeData({ code: 'MANUAL', url: DEFAULT_URL, maxScore: 100, normalizationRule: 'multiplier' });
+    setSessionStartTime(Date.now());
     setStarted(true);
   };
 
@@ -404,6 +422,174 @@ export default function App() {
     setActiveUrl(next);
   };
 
+  const handleSubmitSession = async () => {
+    setIsSubmittingSession(true);
+    try {
+      const rawNum = studentRawScoreInput.trim() !== '' ? Number(studentRawScoreInput) : null;
+      const duration = Math.max(1, Math.round((Date.now() - (sessionStartTime || Date.now())) / 1000));
+      const finalStudentName = studentName.trim() || 'Candidate';
+      const finalStudentId = studentId.trim() || '';
+
+      let result = null;
+      if (activeCodeData?.code && activeCodeData.code !== 'MANUAL') {
+        const res = await fetch(`${API_BASE_URL}/sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: activeCodeData.code,
+            studentName: finalStudentName,
+            studentId: finalStudentId,
+            studentEmail: studentEmail.trim() || null,
+            rawScore: rawNum,
+            fairnessScore: Math.round(fairnessScore),
+            violationsCount: violations.length,
+            violationsSummary: fairnessBreakdown,
+            urlLogs: urlLogs,
+            durationSeconds: duration,
+            startedAt: sessionStartTime ? new Date(sessionStartTime).toISOString() : new Date().toISOString(),
+            submittedAt: new Date().toISOString(),
+          }),
+        });
+        if (res.ok) {
+          result = await res.json();
+        }
+      }
+
+      if (!result) {
+        const max = activeCodeData?.maxScore || 100;
+        const normScore = calculateNormalizedScore({
+          rule: activeCodeData?.normalizationRule || 'multiplier',
+          rawScore: rawNum !== null ? rawNum : max,
+          fairnessScore: Math.round(fairnessScore),
+          maxScore: max,
+          passThreshold: activePreset?.passThreshold || 70,
+        });
+        result = {
+          id: 'sess-' + Math.random().toString(36).substring(2, 9),
+          code: activeCodeData?.code || 'LOCAL',
+          studentName: finalStudentName,
+          studentId: finalStudentId,
+          rawScore: rawNum,
+          maxScore: max,
+          fairnessScore: Math.round(fairnessScore),
+          normalizedScore: normScore,
+          status: fairnessScore >= (activePreset?.passThreshold || 70) ? 'passed' : 'flagged',
+          durationSeconds: duration,
+          violationsCount: violations.length,
+          platformType: activeCodeData?.platformType || 'google-forms',
+          normalizationRule: activeCodeData?.normalizationRule || 'multiplier',
+        };
+      }
+
+      setShowSubmitModal(false);
+      setCompletedSessionResult(result);
+    } catch (err) {
+      console.error('Session submit error:', err);
+      const max = activeCodeData?.maxScore || 100;
+      const rawNum = studentRawScoreInput.trim() !== '' ? Number(studentRawScoreInput) : null;
+      const normScore = calculateNormalizedScore({
+        rule: activeCodeData?.normalizationRule || 'multiplier',
+        rawScore: rawNum !== null ? rawNum : max,
+        fairnessScore: Math.round(fairnessScore),
+        maxScore: max,
+        passThreshold: activePreset?.passThreshold || 70,
+      });
+      setCompletedSessionResult({
+        id: 'local-' + Date.now(),
+        code: activeCodeData?.code || testCode || 'MANUAL',
+        studentName: studentName.trim() || 'Candidate',
+        studentId: studentId.trim() || '',
+        rawScore: rawNum,
+        maxScore: max,
+        fairnessScore: Math.round(fairnessScore),
+        normalizedScore: normScore,
+        status: fairnessScore >= (activePreset?.passThreshold || 70) ? 'passed' : 'flagged',
+        durationSeconds: Math.max(1, Math.round((Date.now() - (sessionStartTime || Date.now())) / 1000)),
+        violationsCount: violations.length,
+        platformType: activeCodeData?.platformType || 'google-forms',
+        normalizationRule: activeCodeData?.normalizationRule || 'multiplier',
+      });
+      setShowSubmitModal(false);
+    } finally {
+      setIsSubmittingSession(false);
+    }
+  };
+
+  const handleResetToStart = () => {
+    setStarted(false);
+    setCompletedSessionResult(null);
+    setShowSubmitModal(false);
+    setTestCode('');
+    setStudentRawScoreInput('');
+    setViolations([]);
+    setUrlLogs([{ id: ++urlLogId, time: new Date().toLocaleTimeString(), url: DEFAULT_URL }]);
+    setActiveUrl(DEFAULT_URL);
+    setUrlInput(DEFAULT_URL);
+  };
+
+  if (completedSessionResult) {
+    const isPass = completedSessionResult.status === 'passed';
+    return (
+      <div className="code-entry-screen">
+        <div className="code-entry-card session-completed-card">
+          <div className="success-icon-wrap">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+          </div>
+          <span className="code-entry-badge" style={{ background: isPass ? 'rgba(34,197,94,0.15)' : 'rgba(234,179,8,0.15)', borderColor: isPass ? 'rgba(34,197,94,0.35)' : 'rgba(234,179,8,0.35)', color: isPass ? '#4ade80' : '#facc15' }}>
+            {isPass ? 'SESSION COMPLETED & REPORT TRANSMITTED' : 'SESSION FLAGGED FOR INSTRUCTOR REVIEW'}
+          </span>
+          <h1 className="code-entry-title">Assessment Submitted</h1>
+          <p className="code-entry-subtitle">
+            Candidate: <strong style={{ color: '#fff' }}>{completedSessionResult.studentName}</strong>
+            {completedSessionResult.studentId ? ` (${completedSessionResult.studentId})` : ''} · Code: <code style={{ color: '#f59e0b' }}>{completedSessionResult.code}</code>
+          </p>
+
+          <div className="report-summary-box">
+            <div className="report-score-row">
+              <div className="score-block">
+                <span className="score-label">Fairness Engine Score</span>
+                <span className="score-number" style={{ color: isPass ? '#22c55e' : '#eab308' }}>
+                  {Math.round(completedSessionResult.fairnessScore)}%
+                </span>
+                <span className="score-subtext">Status: {completedSessionResult.status.toUpperCase()}</span>
+              </div>
+              <div className="score-divider" />
+              <div className="score-block">
+                <span className="score-label">Normalized Total Score</span>
+                <span className="score-number highlight">
+                  {completedSessionResult.normalizedScore} <small style={{ fontSize: '0.8rem', color: '#94a3b8' }}>/ {completedSessionResult.maxScore}</small>
+                </span>
+                <span className="score-subtext">{completedSessionResult.normalizationRule?.replace(/_/g, ' ') || 'Normalized'}</span>
+              </div>
+            </div>
+
+            <div className="report-meta-grid">
+              <div><span>Duration:</span> {Math.floor(completedSessionResult.durationSeconds / 60)}m {completedSessionResult.durationSeconds % 60}s</div>
+              <div><span>Violations:</span> {completedSessionResult.violationsCount} logged</div>
+              <div><span>Platform:</span> {completedSessionResult.platformType || 'Web Form'}</div>
+              <div><span>Session ID:</span> {completedSessionResult.id.slice(0, 8)}...</div>
+            </div>
+          </div>
+
+          <p style={{ color: '#94a3b8', fontSize: '0.84rem', marginTop: '16px', lineHeight: '1.4' }}>
+            Your proctoring integrity metrics and normalized score have been transmitted to your instructor.
+          </p>
+
+          <button
+            className="code-entry-btn"
+            style={{ marginTop: '20px' }}
+            onClick={handleResetToStart}
+          >
+            Finish &amp; Close Session
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!started) {
     return (
       <div className="code-entry-screen">
@@ -433,6 +619,32 @@ export default function App() {
                 spellCheck={false}
               />
             </div>
+
+            <div className="student-reg-fields" style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ flex: 1.3 }}>
+                <label className="code-entry-label">Student Name</label>
+                <input
+                  className="code-entry-input"
+                  type="text"
+                  value={studentName}
+                  onChange={(e) => setStudentName(e.target.value)}
+                  placeholder="e.g. Alex Morgan"
+                  spellCheck={false}
+                />
+              </div>
+              <div style={{ flex: 0.9 }}>
+                <label className="code-entry-label">Roll / ID</label>
+                <input
+                  className="code-entry-input"
+                  type="text"
+                  value={studentId}
+                  onChange={(e) => setStudentId(e.target.value)}
+                  placeholder="e.g. 2026-042"
+                  spellCheck={false}
+                />
+              </div>
+            </div>
+
             {codeError && (
               <div className="code-entry-error">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -468,6 +680,11 @@ export default function App() {
           <span className="preset-badge" title={`Proctoring level: ${activePreset.name} (pass < ${activePreset.passThreshold})`}>
             {activePreset.name} · L{activePreset.level ?? 'C'}
           </span>
+          {activeCodeData?.platformType && (
+            <span className="platform-tag" title="Target form/platform">
+              {activeCodeData.platformType}
+            </span>
+          )}
         </div>
         <div className="url-bar">
           <input
@@ -479,14 +696,90 @@ export default function App() {
           <button onClick={loadUrl}>Load</button>
         </div>
         <div className="fs-controls">
+          <button
+            className="btn-submit-exam"
+            onClick={() => setShowSubmitModal(true)}
+            title="Finish exam and transmit session report to instructor"
+          >
+            Submit Assessment
+          </button>
           <button onClick={() => window.electronAPI?.toggleFullscreen(true)}>
-            Enter Fullscreen
+            Fullscreen
           </button>
           <button onClick={() => window.electronAPI?.toggleFullscreen(false)}>
             Exit
           </button>
         </div>
       </header>
+
+      {showSubmitModal && (
+        <div className="modal-backdrop">
+          <div className="submit-modal-card">
+            <h3 style={{ fontSize: '1.25rem', color: '#fff', marginBottom: '6px' }}>Finish &amp; Submit Assessment</h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.86rem', lineHeight: '1.4' }}>
+              Are you sure you have completed your assessment? Your proctoring fairness score and logs will be calculated and reported to your instructor.
+            </p>
+
+            <div className="submit-modal-stats">
+              <div className="mini-stat">
+                <span className="mini-label">Fairness Score</span>
+                <span className="mini-val" style={{ color: fairnessScore >= (activePreset?.passThreshold || 70) ? '#22c55e' : '#eab308' }}>
+                  {Math.round(fairnessScore)}%
+                </span>
+              </div>
+              <div className="mini-stat">
+                <span className="mini-label">Time Elapsed</span>
+                <span className="mini-val">
+                  {Math.floor((Date.now() - (sessionStartTime || Date.now())) / 60000)}m
+                </span>
+              </div>
+              <div className="mini-stat">
+                <span className="mini-label">Violations</span>
+                <span className="mini-val">{violations.length}</span>
+              </div>
+            </div>
+
+            <div style={{ marginTop: '16px', textAlign: 'left' }}>
+              <label style={{ fontSize: '0.78rem', color: '#cbd5e1', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                Exam Raw Score (Optional — if shown upon form submission)
+              </label>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                max={activeCodeData?.maxScore || 100}
+                value={studentRawScoreInput}
+                onChange={(e) => setStudentRawScoreInput(e.target.value)}
+                placeholder={`e.g. 85 (out of ${activeCodeData?.maxScore || 100})`}
+                className="code-entry-input"
+                style={{ padding: '10px 14px', fontSize: '0.95rem' }}
+              />
+              <small style={{ color: '#64748b', fontSize: '0.74rem', marginTop: '4px', display: 'block' }}>
+                Normalized via {activeCodeData?.normalizationRule ? activeCodeData.normalizationRule.replace(/_/g, ' ') : 'Integrity Multiplier'} rule.
+              </small>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowSubmitModal(false)}
+                className="btn-cancel"
+                disabled={isSubmittingSession}
+                style={{ background: 'transparent', border: '1px solid #475569', color: '#cbd5e1', padding: '10px 18px', borderRadius: '8px', cursor: 'pointer' }}
+              >
+                Continue Exam
+              </button>
+              <button
+                onClick={handleSubmitSession}
+                className="btn-confirm-submit"
+                disabled={isSubmittingSession}
+                style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', border: 'none', color: '#000', fontWeight: 700, padding: '10px 20px', borderRadius: '8px', cursor: 'pointer' }}
+              >
+                {isSubmittingSession ? 'Transmitting...' : 'Confirm & Submit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="body">
         <SiteFrame
