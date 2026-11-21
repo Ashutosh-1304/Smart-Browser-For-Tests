@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { db } from './db.js';
 import { codesRouter } from './routes/codes.js';
+import { sessionsRouter } from './routes/sessions.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +41,8 @@ app.get('/api/health', async (req, res) => {
 });
 
 app.use('/api/codes', codesRouter);
+app.use('/api/sessions', sessionsRouter);
+app.use('/api/reports', sessionsRouter);
 app.use(express.static(path.resolve(__dirname, '../website')));
 
 app.use((req, res) => {

@@ -30,7 +30,20 @@ function resolvePresetInput(body) {
 
 codesRouter.post('/', async (req, res, next) => {
   try {
-    const { url, expires_at, expiresAt, created_by, createdBy } = req.body || {};
+    const {
+      url,
+      expires_at,
+      expiresAt,
+      created_by,
+      createdBy,
+      platform,
+      platform_type,
+      platformType,
+      max_score,
+      maxScore,
+      normalization_rule,
+      normalizationRule,
+    } = req.body || {};
 
     const validation = validateAndNormalizeUrl(url);
     if (!validation.valid) {
@@ -45,6 +58,9 @@ codesRouter.post('/', async (req, res, next) => {
     const normalizedUrl = validation.url;
     const finalExpiresAt = expiresAt || expires_at || null;
     const finalCreatedBy = createdBy || created_by || null;
+    const finalPlatform = platformType || platform_type || platform || 'google-forms';
+    const finalMaxScore = Math.max(1, Number(maxScore || max_score || 100));
+    const finalNormRule = normalizationRule || normalization_rule || 'multiplier';
 
     if (finalExpiresAt) {
       const expDate = new Date(finalExpiresAt);
@@ -71,6 +87,9 @@ codesRouter.post('/', async (req, res, next) => {
       created_by: finalCreatedBy,
       preset_id: presetResult.preset_id,
       preset_config: presetResult.preset_config,
+      platform_type: finalPlatform,
+      max_score: finalMaxScore,
+      normalization_rule: finalNormRule,
     });
 
     const resolvedPreset = JSON.parse(presetResult.preset_config);
@@ -83,6 +102,9 @@ codesRouter.post('/', async (req, res, next) => {
       expiresAt: finalExpiresAt,
       presetId: presetResult.preset_id,
       preset: resolvedPreset,
+      platformType: finalPlatform,
+      maxScore: finalMaxScore,
+      normalizationRule: finalNormRule,
     });
   } catch (err) {
     next(err);
@@ -129,6 +151,9 @@ codesRouter.get('/:code', async (req, res, next) => {
       status: record.status,
       presetId: record.preset_id || 'level-2',
       preset: record.preset_config ? JSON.parse(record.preset_config) : resolvePreset('level-2'),
+      platformType: record.platform_type || 'google-forms',
+      maxScore: record.max_score ?? 100,
+      normalizationRule: record.normalization_rule || 'multiplier',
     });
   } catch (err) {
     next(err);
@@ -140,7 +165,18 @@ codesRouter.get('/', async (req, res, next) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 100);
     const status = req.query.status;
 
-    let query = db('codes').select('code', 'target_url', 'status', 'created_at', 'expires_at', 'hit_count', 'preset_id');
+    let query = db('codes').select(
+      'code',
+      'target_url',
+      'status',
+      'created_at',
+      'expires_at',
+      'hit_count',
+      'preset_id',
+      'platform_type',
+      'max_score',
+      'normalization_rule'
+    );
 
     if (status) {
       query = query.where({ status });
@@ -156,6 +192,9 @@ codesRouter.get('/', async (req, res, next) => {
       expiresAt: row.expires_at,
       hitCount: row.hit_count,
       presetId: row.preset_id || 'level-2',
+      platformType: row.platform_type || 'google-forms',
+      maxScore: row.max_score ?? 100,
+      normalizationRule: row.normalization_rule || 'multiplier',
     }));
 
     return res.json(result);
