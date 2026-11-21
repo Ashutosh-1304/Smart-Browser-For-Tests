@@ -62,6 +62,13 @@
           </svg>
           Recent Codes
         </a>
+        <a href="#reports" class="nav-tab">
+          <!-- NeatIcons: activity.svg -->
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+            <path d="M2.75 12L6.267 12C6.78 12 7.074 11.793 7.247 11.31L8.521 7.742C9.206 5.823 9.794 5.823 10.479 7.742L13.521 16.258C14.206 18.177 14.794 18.177 15.479 16.258L16.753 12.69C16.926 12.207 17.22 12 17.733 12L21.25 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Session Reports
+        </a>
         <a href="dashboard.html" class="nav-tab nav-tab-invigilator">
           <!-- NeatIcons: monitor.svg -->
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
@@ -172,6 +179,12 @@
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="9.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
               <path d="M12 7L12 11.564C12 11.869 12.111 12.069 12.371 12.228L15.25 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </a>
+          <a href="#reports" class="rail-item" title="Student Session Reports & Fairness Scoring">
+            <!-- NeatIcons: activity.svg -->
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M2.75 12L6.267 12C6.78 12 7.074 11.793 7.247 11.31L8.521 7.742C9.206 5.823 9.794 5.823 10.479 7.742L13.521 16.258C14.206 18.177 14.794 18.177 15.479 16.258L16.753 12.69C16.926 12.207 17.22 12 17.733 12L21.25 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </a>
           <a href="dashboard.html" class="rail-item" title="Live Invigilator Console">
@@ -337,7 +350,42 @@
 
             <!-- Step 1: Input & Presets -->
             <div class="step" id="step1">
-              <label for="linkInput" class="input-label">
+              <!-- Platform Selection Chips -->
+              <div class="platform-section">
+                <label class="input-label">
+                  <!-- NeatIcons: layout-grid.svg -->
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                    <path d="M3.75 8.3C3.75 5.115 5.115 3.75 8.3 3.75L15.7 3.75C18.885 3.75 20.25 5.115 20.25 8.3L20.25 15.7C20.25 18.885 18.885 20.25 15.7 20.25L8.3 20.25C5.115 20.25 3.75 18.885 3.75 15.7L3.75 8.3Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M3.75 12H20.25" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                    <path d="M12 3.75V20.25" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+                  </svg>
+                  Assessment Platform Choice
+                </label>
+                <div class="platform-chips" id="platformChips" role="radiogroup" aria-label="Assessment Platform">
+                  <button type="button" class="platform-chip active" data-platform="google-forms">
+                    <span class="platform-dot"></span>
+                    <span class="platform-name">Google Forms</span>
+                  </button>
+                  <button type="button" class="platform-chip" data-platform="ms-forms">
+                    <span class="platform-dot"></span>
+                    <span class="platform-name">Microsoft Forms</span>
+                  </button>
+                  <button type="button" class="platform-chip" data-platform="quizizz">
+                    <span class="platform-dot"></span>
+                    <span class="platform-name">Quizizz / Kahoot</span>
+                  </button>
+                  <button type="button" class="platform-chip" data-platform="canvas">
+                    <span class="platform-dot"></span>
+                    <span class="platform-name">Canvas / LMS</span>
+                  </button>
+                  <button type="button" class="platform-chip" data-platform="custom">
+                    <span class="platform-dot"></span>
+                    <span class="platform-name">Custom Web Link</span>
+                  </button>
+                </div>
+              </div>
+
+              <label for="linkInput" class="input-label" style="margin-top:14px;">
                 <!-- NeatIcons: link.svg -->
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <path d="M9.5 7H7.75A5 5 0 0 0 7.75 17H9.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -358,12 +406,114 @@
                 <input
                   type="url"
                   id="linkInput"
-                  placeholder="https://docs.google.com/forms/d/e/... or any test URL"
+                  placeholder="https://docs.google.com/forms/d/e/... or test link"
                   autocomplete="off"
                   spellcheck="false"
                 />
               </div>
               <p class="error-text" id="errorText"></p>
+
+              <!-- Scoring & Fairness Normalization Settings -->
+              <div class="scoring-config-grid">
+                <div class="scoring-field">
+                  <label for="maxScoreInput" class="input-label">
+                    <!-- NeatIcons: target.svg -->
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="12" r="9.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <circle cx="12" cy="12" r="5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+                    </svg>
+                    Max Exam Score
+                  </label>
+                  <div class="input-group">
+                    <input
+                      type="number"
+                      id="maxScoreInput"
+                      value="100"
+                      min="1"
+                      max="1000"
+                      step="1"
+                      placeholder="100"
+                    />
+                    <span class="input-suffix">pts</span>
+                  </div>
+                </div>
+
+                <div class="scoring-field">
+                  <label for="normRuleSelect" class="input-label">
+                    <!-- NeatIcons: sliders.svg -->
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <circle cx="15.5" cy="6" r="2.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <circle cx="8.5" cy="12" r="2.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M3.75 6H13.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M10.75 12H20.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Fairness Normalization Rule
+                  </label>
+                  <div class="custom-select-wrap">
+                    <select id="normRuleSelect" class="norm-rule-select">
+                      <option value="multiplier" selected>Integrity Multiplier: Raw × (Fairness / 100)</option>
+                      <option value="weighted_80_20">Dual Weighted: 80% Raw Score + 20% Integrity</option>
+                      <option value="penalty_deduction">Penalty Deduction: Raw − (Deduction % of Max)</option>
+                      <option value="threshold_gate">Threshold Gate: Pass ≥ 70% or Zero Grade</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Interactive Live Normalization Preview Calculator -->
+              <div class="norm-preview-card" id="normPreviewCard">
+                <div class="norm-preview-head">
+                  <div class="norm-preview-title">
+                    <!-- NeatIcons: activity.svg -->
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <path d="M2.75 12L6.267 12C6.78 12 7.074 11.793 7.247 11.31L8.521 7.742C9.206 5.823 9.794 5.823 10.479 7.742L13.521 16.258C14.206 18.177 14.794 18.177 15.479 16.258L16.753 12.69C16.926 12.207 17.22 12 17.733 12L21.25 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <strong>Live Total Score Normalizer</strong>
+                    <span class="preview-badge">Live Calculator</span>
+                  </div>
+                  <span class="norm-formula-tag" id="previewRuleTag">Multiplier</span>
+                </div>
+                <p class="norm-preview-desc" id="previewFormulaDesc">
+                  Tests how the fairness engine proctoring score scales final marks before generating code.
+                </p>
+
+                <div class="norm-sliders-grid">
+                  <div class="norm-slider-box">
+                    <div class="slider-head-row">
+                      <span>Simulated Exam Raw Score:</span>
+                      <strong id="previewRawScoreLabel">85 / 100 pts</strong>
+                    </div>
+                    <input type="range" id="previewRawSlider" min="0" max="100" value="85" step="1" />
+                  </div>
+
+                  <div class="norm-slider-box">
+                    <div class="slider-head-row">
+                      <span>Fairness Engine Integrity Index:</span>
+                      <strong id="previewFairnessLabel">92% (Passed)</strong>
+                    </div>
+                    <input type="range" id="previewFairnessSlider" min="0" max="100" value="92" step="1" />
+                  </div>
+                </div>
+
+                <div class="norm-calc-summary">
+                  <div class="calc-metric">
+                    <span class="calc-metric-lbl">Normalized Total Score</span>
+                    <div class="calc-metric-val-row">
+                      <span class="calc-metric-big" id="previewTotalScore">78.2</span>
+                      <span class="calc-metric-sub" id="previewTotalDenominator">/ 100 pts</span>
+                    </div>
+                  </div>
+                  <div class="calc-metric">
+                    <span class="calc-metric-lbl">Effective Grade %</span>
+                    <span class="calc-metric-grade" id="previewGradePct">78.2%</span>
+                  </div>
+                  <div class="calc-metric">
+                    <span class="calc-metric-lbl">Integrity Status</span>
+                    <span class="status-badge passed" id="previewStatusBadge">passed</span>
+                  </div>
+                </div>
+              </div>
 
               <!-- Strictness Selector Cards -->
               <label class="input-label" style="margin-top:18px;">
@@ -524,12 +674,20 @@
                   <span class="detail-value" id="resultLink"></span>
                 </div>
                 <div class="detail-row">
+                  <span class="detail-label">Platform</span>
+                  <span class="detail-value" id="resultPlatform">Google Forms</span>
+                </div>
+                <div class="detail-row">
                   <span class="detail-label">Created At</span>
                   <span class="detail-value" id="resultTime"></span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Strictness Preset</span>
                   <span class="detail-value" id="resultPreset"></span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Fairness Normalization</span>
+                  <span class="detail-value" id="resultNormalization">Integrity Multiplier</span>
                 </div>
               </div>
 
@@ -692,6 +850,95 @@
           </div>
         </section>
 
+        <!-- Session Reports & Normalized Grades Section -->
+        <section class="dash-card table-section reports-section" id="reports">
+          <div class="table-section-head">
+            <div class="table-title-group">
+              <div class="table-icon-wrap stat-icon-active">
+                <!-- NeatIcons: activity.svg -->
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M2.75 12L6.267 12C6.78 12 7.074 11.793 7.247 11.31L8.521 7.742C9.206 5.823 9.794 5.823 10.479 7.742L13.521 16.258C14.206 18.177 14.794 18.177 15.479 16.258L16.753 12.69C16.926 12.207 17.22 12 17.733 12L21.25 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <h2>Student Session Reports &amp; Fairness Scores</h2>
+              <span class="count-badge" id="reportCountBadge">0 Submissions</span>
+            </div>
+
+            <div class="table-tools">
+              <div class="table-search-box">
+                <!-- NeatIcons: search.svg -->
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                  <circle cx="10.5" cy="10.5" r="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M15.6 15.6L20.5 20.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <input type="text" id="reportSearchInput" placeholder="Filter student or ID..." />
+              </div>
+
+              <div class="filter-dropdown-wrap">
+                <!-- NeatIcons: filter.svg -->
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                  <path d="M6.083 7.68C4.275 5.454 4.729 4.5 7.597 4.5L16.403 4.5C19.271 4.5 19.725 5.454 17.917 7.68L14.262 12.178C14.079 12.404 13.978 12.695 13.978 12.986L13.978 17.5C13.978 18.25 13.524 18.9 12.871 19.2L11.022 20.05C10.428 20.325 9.75 19.89 9.75 19.23L9.75 12.986C9.75 12.695 9.649 12.404 9.466 12.178L6.083 7.68Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <select id="reportCodeFilter">
+                  <option value="all">All Assessments</option>
+                </select>
+              </div>
+
+              <div class="filter-dropdown-wrap">
+                <select id="reportStatusFilter">
+                  <option value="all">All Statuses</option>
+                  <option value="passed">Passed Only</option>
+                  <option value="flagged">Flagged Only</option>
+                  <option value="failed">Failed Only</option>
+                </select>
+              </div>
+
+              <button class="table-btn" id="refreshReportsBtn" title="Refresh session submissions">
+                <!-- NeatIcons: refresh.svg -->
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                  <path d="M19.048 14.565A7.5 7.5 0 1 1 17.303 6.697L18.961 8.355" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M19.425 3.818L19.425 6.868C19.425 8.233 18.84 8.818 17.475 8.818L14.425 8.818" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Refresh
+              </button>
+
+              <button class="table-btn btn-export-csv" id="exportCsvBtn" title="Export CSV Grade Report">
+                <!-- NeatIcons: arrow-right / download -->
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                  <path d="M4.75 14.75V18.25C4.75 18.8 5.2 19.25 5.75 19.25H18.25C18.8 19.25 19.25 18.8 19.25 18.25V14.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M12 4.75V14.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M8.5 10.75L12 14.25L15.5 10.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Export CSV
+              </button>
+            </div>
+          </div>
+
+          <!-- Reports KPI Metrics Row -->
+          <div class="report-summary-cards">
+            <div class="report-mini-kpi">
+              <span class="mini-kpi-label">Total Submissions</span>
+              <strong class="mini-kpi-val" id="repSummaryTotal">0</strong>
+            </div>
+            <div class="report-mini-kpi">
+              <span class="mini-kpi-label">Avg Fairness Score</span>
+              <strong class="mini-kpi-val" id="repSummaryFairness">100%</strong>
+            </div>
+            <div class="report-mini-kpi">
+              <span class="mini-kpi-label">Avg Normalized Grade</span>
+              <strong class="mini-kpi-val" id="repSummaryGrade">—</strong>
+            </div>
+            <div class="report-mini-kpi">
+              <span class="mini-kpi-label">Integrity Pass Rate</span>
+              <strong class="mini-kpi-val text-success" id="repSummaryPassRate">100%</strong>
+            </div>
+          </div>
+
+          <div class="table-wrap" id="reportsTableWrap">
+            <p class="empty-state">No student assessment sessions recorded yet.</p>
+          </div>
+        </section>
+
       </main>
     </div>
 
@@ -700,6 +947,31 @@
       <p>&copy; 2026 Smart Browser &mdash; Secure Assessment Platform &bull; Teacher Control Portal</p>
     </footer>
 
+  </div>
+
+  <!-- Session Audit & Grade Update Modal -->
+  <div class="modal-backdrop hidden" id="auditModalBackdrop" onclick="handleBackdropClick(event)">
+    <div class="modal-card audit-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="side-icon-box">
+            <!-- NeatIcons: activity.svg -->
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M2.75 12L6.267 12C6.78 12 7.074 11.793 7.247 11.31L8.521 7.742C9.206 5.823 9.794 5.823 10.479 7.742L13.521 16.258C14.206 18.177 14.794 18.177 15.479 16.258L16.753 12.69C16.926 12.207 17.22 12 17.733 12L21.25 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div>
+            <h3 id="modalStudentName">Student Session Audit</h3>
+            <span class="modal-subtitle" id="modalStudentMeta">Assessment Code: 7X9K2M &bull; Duration: 12m</span>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="modalCloseBtn" onclick="closeAuditModal()" title="Close audit report">&times;</button>
+      </div>
+
+      <div class="modal-body" id="auditModalContent">
+        <!-- Injected dynamically by script.js -->
+      </div>
+    </div>
   </div>
 
   <!-- Toast Notification -->

@@ -20,6 +20,125 @@ let cachedCodes = [];
 let currentSearchQuery = '';
 let currentStatusFilter = 'all';
 
+/* ── Platform Choices & Score Normalization State ─────────────────────────── */
+let selectedPlatform = 'google-forms';
+const PLATFORM_PLACEHOLDERS = {
+  'google-forms': 'https://docs.google.com/forms/d/e/... or test link',
+  'ms-forms': 'https://forms.office.com/r/... or test link',
+  'quizizz': 'https://quizizz.com/join?... or Kahoot link',
+  'canvas': 'https://canvas.instructure.com/courses/... or LMS link',
+  'custom': 'https://your-testing-platform.com/... or any test URL'
+};
+
+function calculateNormalizedGrade(rawScore, fairnessScore, maxScore = 100, rule = 'multiplier') {
+  const raw = Number(rawScore) || 0;
+  const fairness = Number(fairnessScore) || 0;
+  const max = Number(maxScore) || 100;
+  let normalized = 0;
+
+  switch (rule) {
+    case 'weighted_80_20':
+      normalized = (0.8 * raw) + (0.2 * (fairness / 100) * max);
+      break;
+    case 'penalty_deduction': {
+      const deductionPct = Math.max(0, 100 - fairness);
+      const pointsLost = (deductionPct / 100) * max;
+      normalized = Math.max(0, raw - pointsLost);
+      break;
+    }
+    case 'threshold_gate':
+      normalized = fairness >= 70 ? raw : 0;
+      break;
+    case 'multiplier':
+    default:
+      normalized = raw * (fairness / 100);
+      break;
+  }
+
+  normalized = Math.min(max, Math.max(0, Number(normalized.toFixed(1))));
+  const gradePct = max > 0 ? Number(((normalized / max) * 100).toFixed(1)) : 0;
+  const status = fairness >= 75 ? 'passed' : (fairness >= 50 ? 'flagged' : 'failed');
+
+  return { normalizedScore: normalized, gradePct, status };
+}
+
+function updateNormPreview() {
+  const rawSlider = document.getElementById('previewRawSlider');
+  const fairnessSlider = document.getElementById('previewFairnessSlider');
+  const maxInput = document.getElementById('maxScoreInput');
+  const ruleSelect = document.getElementById('normRuleSelect');
+
+  if (!rawSlider || !fairnessSlider || !maxInput || !ruleSelect) return;
+
+  const max = Math.max(1, parseInt(maxInput.value, 10) || 100);
+  rawSlider.max = max;
+  if (parseInt(rawSlider.value, 10) > max) rawSlider.value = max;
+
+  const raw = parseFloat(rawSlider.value) || 0;
+  const fairness = parseFloat(fairnessSlider.value) || 0;
+  const rule = ruleSelect.value;
+
+  const { normalizedScore, gradePct, status } = calculateNormalizedGrade(raw, fairness, max, rule);
+
+  const rawLabel = document.getElementById('previewRawScoreLabel');
+  if (rawLabel) rawLabel.textContent = `${raw} / ${max} pts`;
+
+  const fairnessLabel = document.getElementById('previewFairnessLabel');
+  if (fairnessLabel) fairnessLabel.textContent = `${fairness}% (${status.charAt(0).toUpperCase() + status.slice(1)})`;
+
+  const tagEl = document.getElementById('previewRuleTag');
+  if (tagEl) {
+    const names = {
+      'multiplier': 'Multiplier',
+      'weighted_80_20': 'Dual 80/20',
+      'penalty_deduction': 'Penalty Subtraction',
+      'threshold_gate': 'Threshold Gate'
+    };
+    tagEl.textContent = names[rule] || rule;
+  }
+
+  const descEl = document.getElementById('previewFormulaDesc');
+  if (descEl) {
+    const descs = {
+      'multiplier': `Linear scaling: Student raw score (${raw}) × (${fairness}% / 100). Rewards consistent integrity.`,
+      'weighted_80_20': `Hybrid grade: 80% weight on academic test (${(0.8 * raw).toFixed(1)} pts) + 20% weight on fairness index.`,
+      'penalty_deduction': `Deduction: Subtracts ${(100 - fairness).toFixed(0)}% proctoring deduction directly from raw marks.`,
+      'threshold_gate': `Strict barrier: Fairness ≥ 70% preserves full score (${raw}), below 70% zeroes the grade.`
+    };
+    descEl.textContent = descs[rule] || '';
+  }
+
+  const scoreEl = document.getElementById('previewTotalScore');
+  if (scoreEl) scoreEl.textContent = normalizedScore;
+
+  const denomEl = document.getElementById('previewTotalDenominator');
+  if (denomEl) denomEl.textContent = `/ ${max} pts`;
+
+  const gradeEl = document.getElementById('previewGradePct');
+  if (gradeEl) gradeEl.textContent = `${gradePct}%`;
+
+  const statusEl = document.getElementById('previewStatusBadge');
+  if (statusEl) {
+    statusEl.className = `status-badge ${status}`;
+    statusEl.textContent = status;
+  }
+}
+
+function initPlatformChips() {
+  const chips = document.querySelectorAll('.platform-chip');
+  chips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      chips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      selectedPlatform = chip.dataset.platform || 'google-forms';
+      const input = document.getElementById('linkInput');
+      if (input && PLATFORM_PLACEHOLDERS[selectedPlatform]) {
+        input.placeholder = PLATFORM_PLACEHOLDERS[selectedPlatform];
+      }
+    });
+  });
+}
+
 /* ── Preset Strictness Configurations ─────────────────────────────────────── */
 const PRESET_DEFS = {
   'level-1': {
@@ -264,7 +383,16 @@ async function generateCode() {
 
   try {
     const presetId = selectedPresetId();
-    const body = { url: fullUrl };
+    const maxScore = Math.max(1, parseInt(document.getElementById('maxScoreInput')?.value, 10) || 100);
+    const normalizationRule = document.getElementById('normRuleSelect')?.value || 'multiplier';
+
+    const body = {
+      url: fullUrl,
+      platformType: selectedPlatform,
+      maxScore: maxScore,
+      normalizationRule: normalizationRule,
+    };
+
     if (presetId === 'custom') {
       body.preset = {
         baseId: customPreset.baseId || 'level-2',
@@ -298,6 +426,29 @@ async function generateCode() {
     const presetEl = document.getElementById('resultPreset');
     if (presetEl) presetEl.textContent = data.preset ? `${data.preset.name} (${data.presetId})` : (data.presetId || 'level-2');
 
+    const platEl = document.getElementById('resultPlatform');
+    if (platEl) {
+      const platLabels = {
+        'google-forms': 'Google Forms',
+        'ms-forms': 'Microsoft Forms',
+        'quizizz': 'Quizizz / Kahoot',
+        'canvas': 'Canvas / LMS',
+        'custom': 'Custom Platform'
+      };
+      platEl.textContent = platLabels[data.platformType] || data.platformType || selectedPlatform;
+    }
+
+    const normEl = document.getElementById('resultNormalization');
+    if (normEl) {
+      const normLabels = {
+        'multiplier': 'Integrity Multiplier',
+        'weighted_80_20': 'Dual Weighted (80/20)',
+        'penalty_deduction': 'Penalty Deduction',
+        'threshold_gate': 'Threshold Gate'
+      };
+      normEl.textContent = normLabels[data.normalizationRule] || data.normalizationRule || normalizationRule;
+    }
+
     document.getElementById('step1').classList.add('hidden');
     document.getElementById('step2').classList.remove('hidden');
     document.getElementById('cardTitle').textContent = 'Code Generated!';
@@ -305,6 +456,7 @@ async function generateCode() {
 
     showToast(`Access code ${data.code} generated successfully!`);
     await fetchAndRenderHistory();
+    await fetchAndRenderReports();
   } catch (err) {
     errorText.textContent = 'Cannot connect to backend server. Verify service is running on http://localhost:3001.';
   } finally {
@@ -343,6 +495,7 @@ function resetForm() {
   document.getElementById('cardTitle').textContent = 'Generate Assessment Code';
   document.getElementById('cardSubtitle').textContent = 'Paste any Google Form, LMS, or quiz URL to issue a secure 6-character access gate.';
   document.getElementById('linkInput').focus();
+  updateNormPreview();
 }
 
 function showToast(msg) {
@@ -666,7 +819,477 @@ document.addEventListener('DOMContentLoaded', () => {
   // Fetch codes & initialize
   fetchAndRenderHistory();
 
+  // Initialize Platform Choice Chips & Normalization Preview
+  initPlatformChips();
+  updateNormPreview();
+
+  const maxInput = document.getElementById('maxScoreInput');
+  if (maxInput) maxInput.addEventListener('input', updateNormPreview);
+
+  const normSelect = document.getElementById('normRuleSelect');
+  if (normSelect) normSelect.addEventListener('change', updateNormPreview);
+
+  const rawSlider = document.getElementById('previewRawSlider');
+  if (rawSlider) rawSlider.addEventListener('input', updateNormPreview);
+
+  const fairnessSlider = document.getElementById('previewFairnessSlider');
+  if (fairnessSlider) fairnessSlider.addEventListener('input', updateNormPreview);
+
+  // Session Reports Listeners
+  const repSearch = document.getElementById('reportSearchInput');
+  if (repSearch) {
+    repSearch.addEventListener('input', (e) => {
+      currentReportSearch = e.target.value;
+      renderReportsTable();
+    });
+  }
+
+  const repCode = document.getElementById('reportCodeFilter');
+  if (repCode) {
+    repCode.addEventListener('change', (e) => {
+      currentReportCode = e.target.value;
+      renderReportsTable();
+    });
+  }
+
+  const repStatus = document.getElementById('reportStatusFilter');
+  if (repStatus) {
+    repStatus.addEventListener('change', (e) => {
+      currentReportStatus = e.target.value;
+      renderReportsTable();
+    });
+  }
+
+  const repRefresh = document.getElementById('refreshReportsBtn');
+  if (repRefresh) {
+    repRefresh.addEventListener('click', () => {
+      fetchAndRenderReports();
+      showToast('Refreshing student session reports...');
+    });
+  }
+
+  const repExport = document.getElementById('exportCsvBtn');
+  if (repExport) {
+    repExport.addEventListener('click', exportReportsCsv);
+  }
+
+  // Fetch session reports
+  fetchAndRenderReports();
+
   // Focus link input
   const linkInput = document.getElementById('linkInput');
   if (linkInput) linkInput.focus();
 });
+
+/* ── Session Reports & Normalized Grades Management ─────────────────────── */
+let cachedSessions = [];
+let currentReportSearch = '';
+let currentReportCode = 'all';
+let currentReportStatus = 'all';
+
+async function fetchAndRenderReports() {
+  let sessions = [];
+  try {
+    const res = await fetch(`${API_BASE_URL}/sessions?limit=100`);
+    if (res.ok) {
+      sessions = await res.json();
+    }
+  } catch (err) {
+    console.warn('Could not fetch sessions from server:', err);
+  }
+
+  cachedSessions = sessions || [];
+  populateReportCodeFilter();
+  updateReportsSummary();
+  renderReportsTable();
+}
+
+function populateReportCodeFilter() {
+  const select = document.getElementById('reportCodeFilter');
+  if (!select) return;
+
+  const currentVal = select.value;
+  const uniqueCodes = Array.from(new Set(cachedSessions.map(s => s.code).filter(Boolean)));
+
+  select.innerHTML = '<option value="all">All Assessments</option>';
+  uniqueCodes.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = `Code: ${c}`;
+    if (c === currentVal) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
+
+function updateReportsSummary() {
+  const totalEl = document.getElementById('repSummaryTotal');
+  const fairnessEl = document.getElementById('repSummaryFairness');
+  const gradeEl = document.getElementById('repSummaryGrade');
+  const passRateEl = document.getElementById('repSummaryPassRate');
+  const badgeEl = document.getElementById('reportCountBadge');
+
+  const total = cachedSessions.length;
+  if (badgeEl) badgeEl.textContent = `${total} Submissions`;
+  if (totalEl) totalEl.textContent = total;
+
+  if (total === 0) {
+    if (fairnessEl) fairnessEl.textContent = '—';
+    if (gradeEl) gradeEl.textContent = '—';
+    if (passRateEl) passRateEl.textContent = '—';
+    return;
+  }
+
+  const avgFairness = cachedSessions.reduce((acc, s) => acc + (s.fairness_score || 0), 0) / total;
+  const scoredSessions = cachedSessions.filter(s => s.normalized_score !== null && s.normalized_score !== undefined);
+  const avgGrade = scoredSessions.length > 0
+    ? (scoredSessions.reduce((acc, s) => acc + (s.normalized_score || 0), 0) / scoredSessions.length).toFixed(1) + ' pts'
+    : '—';
+  const passedCount = cachedSessions.filter(s => s.status === 'passed').length;
+  const passRate = ((passedCount / total) * 100).toFixed(1);
+
+  if (fairnessEl) fairnessEl.textContent = `${avgFairness.toFixed(1)}%`;
+  if (gradeEl) gradeEl.textContent = avgGrade;
+  if (passRateEl) passRateEl.textContent = `${passRate}%`;
+}
+
+function getFilteredSessions() {
+  const query = (currentReportSearch || '').trim().toLowerCase();
+  const codeFilter = currentReportCode || 'all';
+  const statusFilter = currentReportStatus || 'all';
+
+  return cachedSessions.filter(item => {
+    if (codeFilter !== 'all' && item.code !== codeFilter) return false;
+    if (statusFilter !== 'all' && item.status !== statusFilter) return false;
+
+    if (!query) return true;
+    const nameMatch = (item.student_name || '').toLowerCase().includes(query);
+    const idMatch = (item.student_id || '').toLowerCase().includes(query);
+    const codeMatch = (item.code || '').toLowerCase().includes(query);
+    return nameMatch || idMatch || codeMatch;
+  });
+}
+
+function renderReportsTable() {
+  const container = document.getElementById('reportsTableWrap');
+  if (!container) return;
+
+  const filtered = getFilteredSessions();
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <p>${cachedSessions.length === 0 
+          ? 'No student sessions recorded yet. Launch assessments to collect fairness scores.' 
+          : 'No student sessions match the selected filters.'}
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  let html = `<table>
+    <thead>
+      <tr>
+        <th>Candidate</th>
+        <th>Assessment</th>
+        <th>Platform</th>
+        <th>Raw Score</th>
+        <th>Fairness Index</th>
+        <th>Total Grade</th>
+        <th>Status</th>
+        <th>Submitted</th>
+        <th>Audit</th>
+      </tr>
+    </thead>
+    <tbody>`;
+
+  filtered.forEach(s => {
+    const formattedDate = s.submitted_at || s.created_at
+      ? new Date(s.submitted_at || s.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : '—';
+
+    const platLabels = {
+      'google-forms': 'Google Forms',
+      'ms-forms': 'MS Forms',
+      'quizizz': 'Quizizz',
+      'canvas': 'Canvas',
+      'custom': 'Custom'
+    };
+    const platformDisplay = platLabels[s.platform_type] || s.platform_type || 'Google Forms';
+    const status = s.status || 'passed';
+    const rawDisplay = s.raw_score !== null && s.raw_score !== undefined ? `${s.raw_score} / ${s.max_score}` : `<span style="color:var(--text-dim)">Pending</span>`;
+    const normDisplay = s.normalized_score !== null && s.normalized_score !== undefined ? `${s.normalized_score} / ${s.max_score}` : `<span style="color:var(--text-dim)">—</span>`;
+
+    html += `<tr>
+      <td>
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <strong style="color:var(--text-primary);font-size:0.86rem;">${escapeHtml(s.student_name || 'Anonymous Candidate')}</strong>
+          <span style="font-size:0.72rem;color:var(--text-muted);font-family:var(--font-mono);">${escapeHtml(s.student_id || 'ID: —')}</span>
+        </div>
+      </td>
+      <td class="code-cell">
+        <span>${escapeHtml(s.code)}</span>
+      </td>
+      <td>
+        <span class="preset-chip">${escapeHtml(platformDisplay)}</span>
+      </td>
+      <td>
+        <span style="font-family:var(--font-mono);font-size:0.82rem;font-weight:700;">${rawDisplay}</span>
+      </td>
+      <td>
+        <span style="font-family:var(--font-mono);font-size:0.84rem;font-weight:800;color:var(--c-yellow);">${s.fairness_score}%</span>
+      </td>
+      <td>
+        <strong style="font-family:var(--font-mono);font-size:0.86rem;color:var(--text-primary);">${normDisplay}</strong>
+      </td>
+      <td>
+        <span class="status-badge ${status}">${status}</span>
+      </td>
+      <td>
+        <span style="color:var(--text-muted);font-size:0.78rem;">${formattedDate}</span>
+      </td>
+      <td>
+        <button class="table-btn" onclick="openAuditModal(${s.id})" title="Inspect fairness deductions and update score">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+            <path d="M2.75 12L6.267 12C6.78 12 7.074 11.793 7.247 11.31L8.521 7.742C9.206 5.823 9.794 5.823 10.479 7.742L13.521 16.258C14.206 18.177 14.794 18.177 15.479 16.258L16.753 12.69C16.926 12.207 17.22 12 17.733 12L21.25 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          Audit
+        </button>
+      </td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+}
+
+function exportReportsCsv() {
+  const filtered = getFilteredSessions();
+  if (filtered.length === 0) {
+    showToast('No sessions available to export.');
+    return;
+  }
+
+  const headers = [
+    'Session ID', 'Student Name', 'Student ID', 'Student Email',
+    'Assessment Code', 'Platform', 'Raw Score', 'Max Score',
+    'Fairness Score %', 'Normalized Score', 'Status',
+    'Started At', 'Submitted At', 'Duration Seconds', 'Violations Count'
+  ];
+
+  const rows = filtered.map(s => [
+    s.id,
+    `"${(s.student_name || '').replace(/"/g, '""')}"`,
+    `"${(s.student_id || '').replace(/"/g, '""')}"`,
+    `"${(s.student_email || '').replace(/"/g, '""')}"`,
+    s.code,
+    s.platform_type || 'google-forms',
+    s.raw_score !== null && s.raw_score !== undefined ? s.raw_score : '',
+    s.max_score || 100,
+    s.fairness_score,
+    s.normalized_score !== null && s.normalized_score !== undefined ? s.normalized_score : '',
+    s.status,
+    s.started_at || '',
+    s.submitted_at || '',
+    s.duration_seconds || 0,
+    s.violations_count || 0
+  ]);
+
+  const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement('a');
+  link.setAttribute('href', encodedUri);
+  link.setAttribute('download', `SmartBrowser_Report_${new Date().toISOString().slice(0, 10)}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  showToast(`Exported ${filtered.length} session records to CSV.`);
+}
+
+async function openAuditModal(sessionId) {
+  const session = cachedSessions.find(s => s.id === sessionId);
+  if (!session) return;
+
+  const modal = document.getElementById('auditModalBackdrop');
+  const nameEl = document.getElementById('modalStudentName');
+  const metaEl = document.getElementById('modalStudentMeta');
+  const contentEl = document.getElementById('auditModalContent');
+
+  if (nameEl) nameEl.textContent = `${session.student_name || 'Candidate'} — Session Report`;
+  if (metaEl) {
+    const mins = Math.floor((session.duration_seconds || 0) / 60);
+    const secs = (session.duration_seconds || 0) % 60;
+    metaEl.textContent = `Code: ${session.code} • Duration: ${mins}m ${secs}s • Platform: ${session.platform_type || 'google-forms'}`;
+  }
+
+  let violations = {};
+  try {
+    violations = typeof session.violations_summary === 'string' ? JSON.parse(session.violations_summary) : (session.violations_summary || {});
+  } catch {}
+
+  let logs = [];
+  try {
+    logs = typeof session.url_logs === 'string' ? JSON.parse(session.url_logs) : (session.url_logs || []);
+  } catch {}
+
+  const rawVal = session.raw_score !== null && session.raw_score !== undefined ? session.raw_score : '';
+
+  contentEl.innerHTML = `
+    <!-- Top KPIs -->
+    <div class="audit-overview-grid">
+      <div class="audit-metric-box">
+        <span class="audit-metric-lbl">Fairness Integrity Score</span>
+        <span class="audit-metric-val" style="color:var(--c-yellow);">${session.fairness_score}%</span>
+      </div>
+      <div class="audit-metric-box">
+        <span class="audit-metric-lbl">Normalized Total Grade</span>
+        <span class="audit-metric-val">${session.normalized_score !== null && session.normalized_score !== undefined ? session.normalized_score : '—'} / ${session.max_score}</span>
+      </div>
+      <div class="audit-metric-box">
+        <span class="audit-metric-lbl">Session Integrity Status</span>
+        <span class="status-badge ${session.status}">${session.status}</span>
+      </div>
+    </div>
+
+    <!-- Raw Score Editor & Normalizer Sync -->
+    <div class="grade-editor-box">
+      <div class="grade-editor-head">
+        <div>
+          <strong style="color:var(--text-primary);font-size:0.86rem;">Exam Raw Marks &amp; Normalization</strong>
+          <p style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">
+            Update raw test marks fetched from ${escapeHtml(session.platform_type || 'Google Forms')}. Normalized score will recalculate instantly.
+          </p>
+        </div>
+        <span class="norm-formula-tag">${escapeHtml(session.normalization_rule || 'multiplier')}</span>
+      </div>
+      <div class="grade-editor-inputs">
+        <div class="grade-input-wrap">
+          <label style="font-size:0.78rem;font-weight:700;color:var(--text-secondary);">Raw Score:</label>
+          <input type="number" id="modalRawInput" value="${rawVal}" min="0" max="${session.max_score}" step="0.5" placeholder="85" />
+          <span style="font-size:0.78rem;color:var(--text-muted);font-weight:600;">/ ${session.max_score} pts</span>
+        </div>
+        <button class="btn-update-score" onclick="updateSessionRawScore(${session.id})">
+          Save &amp; Recalculate
+        </button>
+      </div>
+    </div>
+
+    <!-- Proctoring Violations Breakdown -->
+    <div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <strong style="font-size:0.82rem;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.05em;">
+          Proctoring Violations Log (${session.violations_count || 0} Total Events)
+        </strong>
+      </div>
+      <div class="violations-list-box">
+        ${renderViolationRows(violations)}
+      </div>
+    </div>
+
+    <!-- Visited URLs / Navigation Audit -->
+    <div>
+      <strong style="font-size:0.82rem;color:var(--text-primary);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:8px;">
+        Assessment URL Timeline
+      </strong>
+      <div class="url-log-box">
+        ${logs.length > 0 ? logs.map(l => `<div>• ${escapeHtml(typeof l === 'string' ? l : JSON.stringify(l))}</div>`).join('') : '<span style="color:var(--text-dim)">No external link deviations detected.</span>'}
+      </div>
+    </div>
+  `;
+
+  modal.classList.remove('hidden');
+}
+
+async function updateSessionRawScore(sessionId) {
+  const input = document.getElementById('modalRawInput');
+  if (!input) return;
+
+  const rawVal = parseFloat(input.value);
+  if (isNaN(rawVal)) {
+    showToast('Please enter a valid raw score number.');
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/sessions/${sessionId}/raw-score`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rawScore: rawVal })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(data.error || 'Failed to update raw score.');
+      return;
+    }
+
+    const newNorm = data.normalizedScore !== undefined ? data.normalizedScore : (data.session ? data.session.normalized_score : '');
+    showToast(`Updated! New normalized grade: ${newNorm} pts`);
+    const idx = cachedSessions.findIndex(s => s.id === sessionId);
+    if (idx !== -1) {
+      if (data.session) {
+        cachedSessions[idx] = data.session;
+      } else {
+        cachedSessions[idx].raw_score = data.rawScore;
+        cachedSessions[idx].normalized_score = data.normalizedScore;
+      }
+    }
+    updateReportsSummary();
+    renderReportsTable();
+    openAuditModal(sessionId);
+  } catch (err) {
+    showToast('Cannot connect to server to update score.');
+  }
+}
+
+function renderViolationRows(violations) {
+  const meta = {
+    'multiple-faces': 'Multiple Faces Detected',
+    'face': 'No Face In Frame',
+    'gaze': 'Looking Away / Off-Screen',
+    'focus': 'Tab Switch / Window Blur',
+    'fullscreen': 'Fullscreen Mode Exited',
+    'obstacle': 'Prohibited Object Detected'
+  };
+
+  const keys = Object.keys(meta);
+  let html = '';
+
+  keys.forEach(k => {
+    const count = violations[k] || 0;
+    html += `
+      <div class="violation-row-item">
+        <span class="violation-item-name">
+          <span style="width:7px;height:7px;border-radius:50%;background:${count > 0 ? 'var(--danger)' : 'var(--success)'};display:inline-block;"></span>
+          ${meta[k]}
+        </span>
+        <span class="${count > 0 ? 'violation-item-badge' : 'stat-pill'}">
+          ${count} ${count === 1 ? 'event' : 'events'}
+        </span>
+      </div>
+    `;
+  });
+
+  return html;
+}
+
+function closeAuditModal() {
+  const modal = document.getElementById('auditModalBackdrop');
+  if (modal) modal.classList.add('hidden');
+}
+
+function handleBackdropClick(e) {
+  if (e.target.id === 'auditModalBackdrop') {
+    closeAuditModal();
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
